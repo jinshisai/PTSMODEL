@@ -35,8 +35,8 @@ The model requires many input parameters. Look into run_models.py to check what 
 1. Calculate velocity field
 1. (Visualize density and velocity distributions)
 1. Export the model into RADMC-3D input files
-1. Calculate the temperature distribution
-1. Solve the radiative transfer
+1. Calculate the temperature distribution with RADMC-3D
+1. Solve the radiative transfer with RADMC-3D
 1. Export into a fits file
 
 See below for the detail of each step. Constants like ```au``` must be given in a script. Here is an example of constants:
@@ -57,10 +57,13 @@ clight = 2.99792458e10  # light speed [cm s^-1]
 # ------------------------------------------
 ```
 
-Steps:
+**Steps**
 1. Build an empty model and grid for a model.
 
 ```python
+# Import
+import ptsmodel # in a directory where you put ptsmodel
+
 # Model name
 modelname = 'test_model'
 
