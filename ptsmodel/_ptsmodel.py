@@ -9,6 +9,8 @@ email: jn.insa.sai@gmail.com
 import numpy as np
 import time
 import matplotlib.pyplot as plt
+#import matplotlib
+#matplotlib.use('TkAgg')
 
 
 
@@ -690,7 +692,7 @@ class PTSMODEL():
         import mpl_toolkits.axes_grid1
 
         # setting for figures
-        plt.rcParams['font.family'] ='Arial'    # font (Times New Roman, Helvetica, Arial)
+        #plt.rcParams['font.family'] ='Arial'    # font (Times New Roman, Helvetica, Arial)
         plt.rcParams['xtick.direction'] = 'in'  # directions of x ticks ('in'), ('out') or ('inout')
         plt.rcParams['ytick.direction'] = 'in'  # directions of y ticks ('in'), ('out') or ('inout')
         plt.rcParams['font.size'] = fontsize    # fontsize
@@ -809,7 +811,7 @@ class PTSMODEL():
 
         fig2.subplots_adjust(wspace=wspace, hspace=hspace)
         fig2.savefig('gas_density_dist.pdf',transparent=True)
-        plt.clf()
+        plt.close()
 
 
     # plot velocity field
@@ -832,7 +834,7 @@ class PTSMODEL():
         import mpl_toolkits.axes_grid1
 
         # setting for figures
-        plt.rcParams['font.family']     = 'Arial'   # font (Times New Roman, Helvetica, Arial)
+        #plt.rcParams['font.family']     = 'Arial'   # font (Times New Roman, Helvetica, Arial)
         plt.rcParams['xtick.direction'] = 'in'      # directions of x ticks ('in'), ('out') or ('inout')
         plt.rcParams['ytick.direction'] = 'in'      # directions of y ticks ('in'), ('out') or ('inout')
         plt.rcParams['font.size']       = fontsize  # fontsize
@@ -975,7 +977,7 @@ class PTSMODEL():
         # save figures
         fig2.subplots_adjust(wspace=wspace, hspace=hspace)
         fig2.savefig('gas_vfield.pdf',transparent=True)
-        plt.clf()
+        plt.close()
 
 
     # plot temperature profile
@@ -999,7 +1001,7 @@ class PTSMODEL():
         import mpl_toolkits.axes_grid1
 
         # setting for figures
-        plt.rcParams['font.family'] ='Arial'    # font (Times New Roman, Helvetica, Arial)
+        #plt.rcParams['font.family'] ='Arial'    # font (Times New Roman, Helvetica, Arial)
         plt.rcParams['xtick.direction'] = 'in'  # directions of x ticks ('in'), ('out') or ('inout')
         plt.rcParams['ytick.direction'] = 'in'  # directions of y ticks ('in'), ('out') or ('inout')
         plt.rcParams['font.size'] = fontsize    # fontsize
