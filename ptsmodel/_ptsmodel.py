@@ -1110,7 +1110,10 @@ class PTSMODEL():
         # plot
         im1   = ax1.pcolormesh(rxy[:,:,nphi//2]/au, zz[:,:,nphi//2]/au,
          retemp[:,:,nphi//2], cmap=cmap, vmin = temp_min, vmax=temp_max, rasterized=True)
-        im11  = ax1.contour(rxy[:,:,nphi//2]/au, zz[:,:,nphi//2]/au,
+
+        rxy_cont = (rxy[:nr,:ntheta,nphi//2] + rxy[1:nr+1,1:ntheta+1,nphi//2])*0.5
+        zz_cont = (zz[:nr,:ntheta,nphi//2] + zz[1:nr+1,1:ntheta+1,nphi//2])*0.5
+        im11  = ax1.contour(rxy_cont/au, zz_cont/au,
          retemp[:,:,nphi//2], colors='white', levels=clevels, linewidths=1.)
 
         cbar1 = fig.colorbar(im1, cax=cax1)
