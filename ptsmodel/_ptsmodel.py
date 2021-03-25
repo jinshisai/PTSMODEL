@@ -698,11 +698,23 @@ class PTSMODEL():
         plt.rcParams['font.size'] = fontsize    # fontsize
 
         # read model
+        # dimension
         nr, ntheta, nphi = self.gridshape
-        rr     = self.rr
-        phph   = self.phph
-        rxy    = self.rxy
-        zz     = self.zz
+
+        # edge of cells
+        #  cuz the plot method, pcolormesh, requires the edge of each cell
+        ri     = self.ri
+        thetai = self.thetai
+        phii   = self.phii
+
+        rr, tt, phph = np.meshgrid(ri, thetai, phii, indexing='ij')
+        rxy = rr*np.sin(tt)      # radius in xy-plane, r*sin(theta)
+        zz  = rr*np.cos(tt)      # z, r*cos(theta)
+        #rr     = self.rr
+        #phph   = self.phph
+        #rxy    = self.rxy
+        #zz     = self.zz
+
         rho_d  = self.rho_d
         nrho_g = self.nrho_g
 
@@ -815,7 +827,7 @@ class PTSMODEL():
 
 
     # plot velocity field
-    def show_vfield(self, nrho_g_range=[], r_range=[], binstep=1,
+    def show_vfield(self, nrho_g_range=[], r_range=[], step=1,
      figsize=(11.69,8.27), vscale=3e2, width=10. ,cmap='coolwarm',
       fontsize=14, wspace=0.4, hspace=0.2):
         '''
@@ -852,9 +864,27 @@ class PTSMODEL():
 
         # read model
         nr, ntheta, nphi = self.gridshape
-        rr, tt, phph     = self.grid
-        rxy    = self.rxy
-        zz     = self.zz
+
+        # edge of cells
+        #  cuz the plot method, pcolormesh, requires the edge of each cell
+        ri     = self.ri
+        thetai = self.thetai
+        phii   = self.phii
+
+        # grid for plot
+        rr_plt, tt_plt, phph_plt = np.meshgrid(ri, thetai, phii, indexing='ij')
+        rxy_plt = rr_plt*np.sin(tt_plt)      # radius in xy-plane, r*sin(theta)
+        zz_plt  = rr_plt*np.cos(tt_plt)      # z, r*cos(theta)
+        xx_plt  = rxy_plt*np.cos(phph_plt)
+        yy_plt  = rxy_plt*np.sin(phph_plt)
+
+
+        # grid
+        rr   = self.rr
+        tt   = self.tt
+        phph = self.phph
+        rxy  = self.rxy
+        zz   = self.zz
 
         # density
         nrho_g = self.nrho_g
@@ -863,6 +893,7 @@ class PTSMODEL():
         vr     = self.vr
         vtheta = self.vtheta
         vphi   = self.vphi
+
 
         vr_xy = vr*np.sin(tt)
         vr_zz = vr*np.cos(tt)
@@ -899,21 +930,21 @@ class PTSMODEL():
         divider = mpl_toolkits.axes_grid1.make_axes_locatable(ax3)
         cax3    = divider.append_axes('right', '3%', pad='0%')
 
-        im3   = ax3.pcolor(rxy[:,:,nphi//2]/au, zz[:,:,nphi//2]/au,
+        im3   = ax3.pcolormesh(rxy_plt[:,:,nphi//2]/au, zz_plt[:,:,nphi//2]/au,
          nrho_g[:,:,nphi//2], cmap=cmap,
           norm = colors.LogNorm(vmin = nrho_g_min, vmax=nrho_g_max), rasterized=True)
         cbar3 = fig2.colorbar(im3,cax=cax3)
 
         # velocity vector
         # sampling
-        vr_xy_vect = vr_xy[:,:,nphi//2]
-        vr_xy_vect = np.array([binArray(vr_xy_vect, i, binstep, binstep) for i in range(len(vr_xy_vect.shape))])
-        vr_zz_vect = vr_zz[:,:,nphi//2]
-        vr_zz_vect = np.array([binArray(vr_zz_vect, i, binstep, binstep) for i in range(len(vr_zz_vect.shape))])
-        rxy_vect = rxy[:,:,nphi//2]/au
-        rxy_vect = np.array([binArray(rxy_vect, i, binstep, binstep) for i in range(len(rxy_vect.shape))])
-        zz_vect  = zz[:,:,nphi//2]/au
-        zz_vect  = np.array([binArray(zz_vect, i, binstep, binstep) for i in range(len(zz_vect.shape))])
+        vr_xy_vect = vr_xy[::step,::step,nphi//2]
+        #vr_xy_vect = np.array([binArray(vr_xy_vect, i, binstep, binstep) for i in range(len(vr_xy_vect.shape))])
+        vr_zz_vect = vr_zz[::step,::step,nphi//2]
+        #vr_zz_vect = np.array([binArray(vr_zz_vect, i, binstep, binstep) for i in range(len(vr_zz_vect.shape))])
+        rxy_vect = rxy[::step,::step,nphi//2]/au
+        #rxy_vect = np.array([binArray(rxy_vect, i, binstep, binstep) for i in range(len(rxy_vect.shape))])
+        zz_vect  = zz[::step,::step,nphi//2]/au
+        #zz_vect  = np.array([binArray(zz_vect, i, binstep, binstep) for i in range(len(zz_vect.shape))])
         #print (rxy_vect.shape)
 
         # plot
@@ -941,20 +972,22 @@ class PTSMODEL():
         xx = rxy*np.cos(phph)
         yy = rxy*np.sin(phph)
 
-        im4   = ax4.pcolor(xx[:,-1,:]/au, yy[:,-1,:]/au,
+        im4   = ax4.pcolormesh(xx_plt[:,-1,:]/au, yy_plt[:,-1,:]/au,
          nrho_g[:,-1,:], cmap=cmap, norm = colors.LogNorm(vmin = nrho_g_min, vmax=nrho_g_max),
          rasterized=True)
         #im4   = ax4.pcolor(rr[:,-1,:]/au, phph[:,-1,:], nrho_gas[:,-1,:], cmap=cm.coolwarm, norm = colors.LogNorm(vmin = 10., vmax=1.e4))
 
         # velocity vector
         # sampling
-        v_xx_vect = np.array([binArray(v_xx, i, binstep, binstep) for i in range(len(v_xx.shape))])
-        v_yy_vect = np.array([binArray(v_yy, i, binstep, binstep) for i in range(len(v_yy.shape))])
+        v_xx_vect = v_xx[::step,::step]
+        v_yy_vect = v_yy[::step,::step]
+        #v_xx_vect = np.array([binArray(v_xx, i, binstep, binstep) for i in range(len(v_xx.shape))])
+        #v_yy_vect = np.array([binArray(v_yy, i, binstep, binstep) for i in range(len(v_yy.shape))])
 
-        xx_vect = xx[:,-1,:]/au
-        yy_vect = yy[:,-1,:]/au
-        xx_vect = np.array([binArray(xx_vect, i, binstep, binstep) for i in range(len(xx_vect.shape))])
-        yy_vect = np.array([binArray(yy_vect, i, binstep, binstep) for i in range(len(yy_vect.shape))])
+        xx_vect = xx[::step,-1,::step]/au
+        yy_vect = yy[::step,-1,::step]/au
+        #xx_vect = np.array([binArray(xx_vect, i, binstep, binstep) for i in range(len(xx_vect.shape))])
+        #yy_vect = np.array([binArray(yy_vect, i, binstep, binstep) for i in range(len(yy_vect.shape))])
 
         # plot
         where_plt = np.where((np.sqrt(xx_vect*xx_vect + yy_vect*yy_vect) >= rmin/au)\
@@ -1008,10 +1041,17 @@ class PTSMODEL():
 
         # read model
         nr, ntheta, nphi = self.gridshape
-        rr     = self.rr
-        phph   = self.phph
-        rxy    = self.rxy
-        zz     = self.zz
+
+        # edge of cells
+        #  cuz the plot method, pcolormesh, requires the edge of each cell
+        ri     = self.ri
+        thetai = self.thetai
+        phii   = self.phii
+
+        rr, tt, phph = np.meshgrid(ri, thetai, phii, indexing='ij')
+        rxy = rr*np.sin(tt)      # radius in xy-plane, r*sin(theta)
+        zz  = rr*np.cos(tt)      # z, r*cos(theta)
+
         rho_d  = self.rho_d
         nrho_g = self.nrho_g
 
@@ -1068,7 +1108,7 @@ class PTSMODEL():
         cax1    = divider.append_axes('right', '3%', pad='0%')
 
         # plot
-        im1   = ax1.pcolor(rxy[:,:,nphi//2]/au, zz[:,:,nphi//2]/au,
+        im1   = ax1.pcolormesh(rxy[:,:,nphi//2]/au, zz[:,:,nphi//2]/au,
          retemp[:,:,nphi//2], cmap=cmap, vmin = temp_min, vmax=temp_max, rasterized=True)
         im11  = ax1.contour(rxy[:,:,nphi//2]/au, zz[:,:,nphi//2]/au,
          retemp[:,:,nphi//2], colors='white', levels=clevels, linewidths=1.)
@@ -1089,7 +1129,7 @@ class PTSMODEL():
         divider = mpl_toolkits.axes_grid1.make_axes_locatable(ax2)
         cax2    = divider.append_axes('right', '3%', pad='0%')
 
-        im2  = ax2.pcolor(xx[:,-1,:]/au, yy[:,-1,:]/au, retemp[:,-1,:],
+        im2  = ax2.pcolormesh(xx[:,-1,:]/au, yy[:,-1,:]/au, retemp[:,-1,:],
          cmap=cmap, vmin = temp_min, vmax=temp_max, rasterized=True)
 
         cbar2 = fig.colorbar(im2, cax=cax2)
