@@ -37,22 +37,135 @@ class PTSMODEL():
 
     '''
 
-    def __init__(self, modelname, nr, ntheta, nphi ,rmin, rmax,
-     thetamin=0., thetamax=np.pi*0.5, phimin=0., phimax=2.*np.pi):
+    def __init__(self, modelname, nr=None, ntheta=None, nphi=None ,rmin=None, rmax=None,
+     thetamin=0., thetamax=np.pi*0.5, phimin=0., phimax=2.*np.pi, readfiles=False):
         self.modelname = modelname
-
-        # makegrid
-        self.nr     = nr
-        self.ntheta = ntheta
-        self.nphi   = nphi
-        self.makegrid(nr, ntheta, nphi ,rmin, rmax,
-            thetamin=thetamin, thetamax=thetamax, phimin=phimin, phimax=phimax)
 
         # initialize
         self.rho_disk = np.array([])
         self.rho_env  = np.array([])
         self.rho_g    = np.array([])
         self.turbulence = False
+
+        if readfiles:
+            self.read_model()
+            return
+
+        # makegrid
+        if all(np.array([nr, ntheta, nphi, rmin, rmax, thetamin, thetamax, phimin, phimax]) != None):
+            print ('Making a grid..')
+            self.makegrid(nr, ntheta, nphi ,rmin, rmax,
+                thetamin=thetamin, thetamax=thetamax, phimin=phimin, phimax=phimax)
+
+
+    def read_model(self):
+        '''
+        Reconstuct model by reading model files.
+
+        '''
+
+        import pandas as pd
+        import os
+        import glob
+
+        # reading file
+        # grid
+        f                = 'amr_grid.inp'
+        if os.path.exists(f) == False:
+            print ('ERROR\tread_model: amr_grid.inp cannot be found.')
+            return
+
+        # dimension
+        nrtp             = np.genfromtxt(f, max_rows=1, skip_header=5, delimiter=' ',dtype=int)
+        nr, ntheta, nphi = nrtp
+        arraysize        = (nr,ntheta,nphi)
+        self.nr     = nr
+        self.ntheta = ntheta
+        self.nphi   = nphi
+
+        dread            = pd.read_csv(f, skiprows=6, comment='#', encoding='utf-8',header=None)
+        coords           = dread.values
+        ri, thetai, phii = np.split(coords,[nr+1,nr+ntheta+2])
+
+        # centers of each cell
+        rc       = 0.5 * ( ri[0:nr] + ri[1:nr+1] )                 # centers of each cell
+        thetac   = 0.5 * ( thetai[0:ntheta] + thetai[1:ntheta+1] )
+        phic     = 0.5 * ( phii[0:nphi] + phii[1:nphi+1] )
+
+        # get grid
+        qq           = np.meshgrid(rc,thetac,phic,indexing='ij') # (r, theta, phi) in the spherical coordinate
+        rr, tt, phph = qq
+        zr           = 0.5*np.pi - tt # angle from z axis (90deg - theta)
+        rxy          = rr*np.sin(tt)  # r in xy-plane
+        zz           = rr*np.cos(tt)  # z in xyz coordinate
+
+        # save
+        self.ri        = ri
+        self.thetai    = thetai
+        self.phii      = phii
+        self.gridshape = arraysize
+        self.grid      = qq
+        self.rr        = rr
+        self.tt        = tt
+        self.phph      = phph
+        self.rxy       = rxy
+        self.zz        = zz
+
+
+        # density
+        # dust denisty [g/cm3]
+        f         = 'dust_density.inp'
+        if os.path.exists(f) == False:
+            print ('WARNING\t: dust_density.inp cannot be found. Put zero for dust density.')
+            rho_d = np.zeros(arraysize)
+        else:
+            dread = pd.read_table(f, skiprows=3, comment='#', encoding='utf-8',header=None)
+            rho_d = dread.values
+            rho_d = np.reshape(rho_d.T,arraysize, order='F')
+            #print drho_dust.shape
+
+
+        # gas number denisty [/cm3]
+        files = glob.glob('numberdens_*.inp')
+        if len(files) == 0:
+            print ("WARNING\t: numberdens_*.inp doesn't exist. Put zero for gas density.")
+            nrho_g = np.zeros(arraysize)
+            rho_g  = np.zeros(arraysize)
+        elif len(files) == 1:
+            f      = files[0]
+            dread  = pd.read_table(f, skiprows=2, comment='#', encoding='utf-8',header=None)
+            nrho_g = dread.values
+            nrho_g = np.reshape(nrho_g.T,arraysize,order='F')
+        else:
+            f = files[0]
+            print ("WARNING\t: More than two numberdens_*.inp files? Read '%s' for the moment."%f)
+            dread  = pd.read_table(f, skiprows=2, comment='#', encoding='utf-8',header=None)
+            nrho_g = dread.values
+            nrho_g = np.reshape(nrho_g.T,arraysize,order='F')
+
+        # save
+        self.rho_d  = rho_d
+        self.nrho_g = nrho_g
+
+
+        # gas velocity [cm/s]
+        f = 'gas_velocity.inp'
+        if os.path.exists(f) == False:
+            print ("WARNING\t: gas_velocity.inp doesn't exist. Put zero for gas v-field.")
+            vr     = np.zeros(arraysize)
+            vtheta = np.zeros(arraysize)
+            vphi   = np.zeros(arraysize)
+        else:
+            dread = pd.read_csv(f, skiprows=2, comment='#', encoding='utf-8',header=None, delimiter=' ',parse_dates=True, keep_date_col=True, skipinitialspace=True)
+            vrtp             = dread.values
+            vr, vtheta, vphi = vrtp.T
+            vr               = np.reshape(vr,arraysize,order='F')
+            vtheta           = np.reshape(vtheta,arraysize,order='F')
+            vphi             = np.reshape(vphi,arraysize,order='F')
+
+        self.vr     = vr
+        self.vtheta = vtheta
+        self.vphi   = vphi
 
 
     def makegrid(self, nr, ntheta, nphi ,rmin, rmax,
@@ -64,6 +177,11 @@ class PTSMODEL():
             nr, ntheta, nphi: number of grid
             xxxmin, xxxmax: minimum and maximum values of axes
         '''
+        # dimension
+        self.nr     = nr
+        self.ntheta = ntheta
+        self.nphi   = nphi
+
         # boundary of cells
         if logr:
             ri       = np.logspace(np.log10(rmin),np.log10(rmax),nr+1) # radius, log scale
@@ -192,7 +310,10 @@ class PTSMODEL():
         See Ulrich (1976) for the detail. Here 0 < theta < pi/2.
         To get solutions, see also Mendoza (2004)
         '''
-        costh = np.cos(theta)
+        # assuming symmetry about the xy-plane to treat pi/2 < theta < pi
+        index = np.where(theta > np.pi*0.5)
+        theta[index] = np.pi - theta[index]
+        costh        = np.cos(theta)
 
         # solve costh0^3 + (-1 + r/rc) costh0 - costh*r/rc = 0
         # Mendoza (2004)
@@ -210,7 +331,7 @@ class PTSMODEL():
             costh0[np.where(r > rc)] = 2.*(-term_1r3[np.where(r > rc)])**0.5*term_sinh
 
         # for r < rc
-        case        = term_rcos_2**2. - term_1r3**3.
+        case = term_rcos_2**2. - term_1r3**3.
         if len(np.where((r < rc) & (case > 0.))[0]) >= 1:
             term_cosh   = np.cosh(1./3.*np.arccosh(term_rcos_2[np.where((r < rc) & (case > 0.))]\
                 /(term_1r3[np.where((r < rc) & (case > 0.))])**(3./2.)))
@@ -223,6 +344,10 @@ class PTSMODEL():
                 /(term_1r3[np.where((r < rc) & (case < 0.))])**(3./2.)))
             costh0[np.where((r < rc) & (case < 0.))] =\
              2.*(term_1r3[np.where((r < rc) & (case < 0.))])**0.5*term_cos
+
+        # put theta back to input, 0 < theta < pi
+        theta[index]  = np.pi - theta[index]
+        costh0[index] = - costh0[index]
 
         return costh0
 
@@ -299,6 +424,121 @@ class PTSMODEL():
 
         rho_sheet = rho_u76 * sech2*(eta/np.tanh(eta))
         self.rho_env = rho_sheet
+
+
+    # flow
+    def rho_flow(self, rho0, rc, theta0_0, phi0_0, delth0, delph0, re_in=None, re_out=None):
+        '''
+        Calculate infalling flows using the model proposed in Ulrich (1976).
+        See Ulrich (1976) for the detail.
+
+        r: radius (any unit)
+        rc: centrifugal radius (any unit)
+        rho0: density at rc (any unit)
+        theta: theta of spherical coordinates (rad)
+        '''
+        # deg --> rad
+        theta0_0 = theta0_0*np.pi/180.
+        phi0_0   = phi0_0*np.pi/180.
+        delth0   = delth0*np.pi/180.
+        delph0   = delph0*np.pi/180.
+
+
+        # save parameters
+        self.rho_e0 = rho0
+        self.rc     = rc
+        self.re_in  = re_in
+        self.re_out = re_out
+
+        r     = self.rr
+        theta = self.tt
+        phi   = self.phph
+
+        # trig functions
+        costh = np.cos(theta)
+        sinth = np.sin(theta)
+        tanth = np.tan(theta)
+        cosph = np.cos(phi)
+        sinph = np.sin(phi)
+
+        # to treat pi/2 < theta < pi assuming symmetry
+        #index = np.where(theta > np.pi*0.5)
+
+        # solve costh0^3 + (-1 + r/rc) costh0 - costh*r/rc = 0
+        costh0 = PTSMODEL.der_th0ph0(r,theta,rc)
+        sinth0 = np.sqrt(1. - costh0*costh0) # 0 < theta0 < 180., sin is always positive
+        tanth0 = sinth0/costh0
+        theta0 = np.arccos(costh0)
+
+        # derive phi0
+        # From Ulrich76,
+        #  tan(phi - phi_0)=tan(alpha)/sin(theta_0).
+        #  cos(alpha) = cos(theta)/cos(theta_0)
+        # We can also obtain following equations:
+        #  sin(alpha) = sin(delphi) x sin(theta), where delphi = (phi - phi_0)
+        #   from spherical trigonometry. alpha is within 0 to pi/2 from its geometry.
+        # Thus,
+        #  tan(delphi) = sin(alpha)/cos(alpha)/sin(theta_0)
+        #              = sin(delphi) x sin(theta) x cos(theta_0)/cos(theta)/sin(theta_0)
+        #  1/cos(delphi) = tan(theta)/tan(theta_0)
+        #  cos(delphi) = tan(theta_0)/tan(theta)
+
+        cosdphi = tanth0/tanth
+        dphi    = np.arccos(cosdphi) # 0 < dphi < pi
+        phi0    = phi - dphi
+        #print (np.nanmin(phi0), np.nanmax(phi0))
+
+        # put phi0 within 0 to 2 pi
+        phi0[np.where(phi0 < 0.)]       = phi0[np.where(phi0 < 0.)] + 2.*np.pi
+        phi0[np.where(phi0 > 2.*np.pi)] = phi0[np.where(phi0 > 2.*np.pi)] - 2.*np.pi
+
+        # densities
+        self.rho_envUl76(rho0, rc, re_in=None, re_out=None) # spherical envelope
+        rho_sp = self.rho_env
+        rho_fl = np.zeros(rho_sp.shape)                                        # flow
+
+        # flow
+        #index_th0 = np.where((theta0 >= theta0_0-delth0) & (theta0 <= theta0_0+delth0))
+        #index_ph0 = np.where((phi0 >= phi0_0-delph0) & (phi0 <= phi0_0+delph0))
+        print ('range of theta_0: %.f--%.f deg'%( (theta0_0-delth0)*180./np.pi, (theta0_0+delth0)*180./np.pi))
+        print ('range of phi_0: %.f--%.f deg'%( (phi0_0-delph0)*180./np.pi, (phi0_0+delph0)*180./np.pi))
+
+        # if phi0 range across phi0=0.
+        if phi0_0 - delph0 < 0.:
+            index = np.where((theta0 >= theta0_0 - delth0) & (theta0 <= theta0_0 + delth0) & (phi0 >= phi0_0 - delph0 + 2.*np.pi))
+            rho_fl[index] = rho_sp[index]
+            #print (phi0_0-delph0 + 2.*np.pi)
+            phirng_min    = np.nanmax(phi[index]*180./np.pi) - 2.*np.pi
+            index = np.where((theta0 >= theta0_0 - delth0) & (theta0 <= theta0_0 + delth0) & (phi0 <= phi0_0 + delph0))
+            rho_fl[index] = rho_sp[index]
+            phirng_max    = np.nanmax(phi[index]*180./np.pi)
+        else:
+            index = np.where((theta0 >= theta0_0-delth0) & (theta0 <= theta0_0+delth0) & (phi0 >= phi0_0-delph0) & (phi0 <= phi0_0+delph0))
+            rho_fl[index] = rho_sp[index]
+            phirng_min, phirng_max = [np.nanmin(phi[index]*180./np.pi), np.nanmax(phi[index]*180./np.pi)]
+
+            # rotate angle
+            if np.abs(phirng_min - phirng_max) > 180.:
+                phirng = phi[index]*180./np.pi
+                phirng[np.where(phirng > 180.)] = phirng[np.where(phirng > 180.)]-360.
+                phirng_min, phirng_max = [np.nanmin(phirng), np.nanmax(phirng)]
+                #print (phirng)
+
+        if re_in:
+            rho_fl[np.where(r < re_in)] = 0.
+
+        if re_out:
+            rho_fl[np.where(r > re_out)] = 0.
+
+        self.rho_env = rho_fl
+
+        #rho_fl[index_th0] = rho_sp[index_th0]
+        #rho_fl[index_ph0] = rho_sp[index_ph0]
+        print ('range of theta: %.f--%.f deg'%(np.nanmin(theta[index]*180./np.pi), np.nanmax(theta[index]*180./np.pi)))
+        print ('range of phi: %.f--%.f deg'%(phirng_min, phirng_max))
+        #print (np.nanmin(theta), np.nanmax(theta))
+
+        return rho_fl
 
 
     def rho_model(self, Xconv, mu=2.8, gtod_ratio = 100.):
@@ -755,7 +995,7 @@ class PTSMODEL():
          norm = colors.LogNorm(vmin = rho_d_min, vmax=rho_d_max), rasterized=True)
         cbar1 = fig1.colorbar(im1, cax=cax1)
 
-        ax1.set_xlabel('radius (au)')
+        ax1.set_xlabel('Radius (au)')
         ax1.set_ylabel('z (au)')
         #cbar1.set_label(r'$\rho_\mathrm{dust}\ \mathrm{(g\ cm^{-3})}$')
         ax1.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True, pad=9)
@@ -767,7 +1007,9 @@ class PTSMODEL():
         divider = mpl_toolkits.axes_grid1.make_axes_locatable(ax2)
         cax2    = divider.append_axes('right', '3%', pad='0%')
 
-        im2   = ax2.pcolormesh(xx[:,-1,:]/au, yy[:,-1,:]/au, rho_d[:,-1,:],
+        indx_mid = np.argmin(np.abs(tt[0,:,0] - np.pi*0.5)) # mid-plane
+        #print (indx_mid)
+        im2   = ax2.pcolormesh(xx[:,indx_mid,:]/au, yy[:,indx_mid,:]/au, rho_d[:,indx_mid,:],
          cmap=cmap, norm = colors.LogNorm(vmin = rho_d_min, vmax=rho_d_max), rasterized=True)
         #ax2.scatter(xx[:,-1,:]/au, yy[:,-1,:]/au, marker='x', s=5., color='k')
         cbar2 = fig1.colorbar(im2,cax=cax2)
@@ -804,8 +1046,7 @@ class PTSMODEL():
         divider = mpl_toolkits.axes_grid1.make_axes_locatable(ax4)
         cax4    = divider.append_axes('right', '3%', pad='0%')
 
-
-        im4   = ax4.pcolormesh(xx[:,-1,:]/au, yy[:,-1,:]/au, nrho_g[:,-1,:], cmap=cmap,
+        im4   = ax4.pcolormesh(xx[:,indx_mid,:]/au, yy[:,indx_mid,:]/au, nrho_g[:,indx_mid,:], cmap=cmap,
          norm = colors.LogNorm(vmin = nrho_g_min, vmax=nrho_g_max), rasterized=True)
         #im4   = ax4.pcolor(rr[:,-1,:]/au, phph[:,-1,:], nrho_gas[:,-1,:], cmap=cm.coolwarm, norm = colors.LogNorm(vmin = 10., vmax=1.e4))
 
@@ -819,10 +1060,10 @@ class PTSMODEL():
 
         # save figures
         fig1.subplots_adjust(wspace=wspace, hspace=hspace)
-        fig1.savefig('dust_density_dist.pdf',transparent=True)
+        fig1.savefig('dust_density.pdf',transparent=True)
 
         fig2.subplots_adjust(wspace=wspace, hspace=hspace)
-        fig2.savefig('gas_density_dist.pdf',transparent=True)
+        fig2.savefig('gas_density.pdf',transparent=True)
         plt.close()
 
 
@@ -851,16 +1092,6 @@ class PTSMODEL():
         plt.rcParams['ytick.direction'] = 'in'      # directions of y ticks ('in'), ('out') or ('inout')
         plt.rcParams['font.size']       = fontsize  # fontsize
 
-        # function for binning
-        def binArray(data, axis, binstep, binsize, func=np.nanmean):
-            data = np.array(data)
-            dims = np.array(data.shape)
-            argdims = np.arange(data.ndim)
-            argdims[0], argdims[axis]= argdims[axis], argdims[0]
-            data = data.transpose(argdims)
-            data = [func(np.take(data,np.arange(int(i*binstep),int(i*binstep+binsize)),0),0) for i in np.arange(dims[axis]//binstep)]
-            data = np.array(data).transpose(argdims)
-            return data
 
         # read model
         nr, ntheta, nphi = self.gridshape
@@ -938,14 +1169,10 @@ class PTSMODEL():
         # velocity vector
         # sampling
         vr_xy_vect = vr_xy[::step,::step,nphi//2]
-        #vr_xy_vect = np.array([binArray(vr_xy_vect, i, binstep, binstep) for i in range(len(vr_xy_vect.shape))])
         vr_zz_vect = vr_zz[::step,::step,nphi//2]
-        #vr_zz_vect = np.array([binArray(vr_zz_vect, i, binstep, binstep) for i in range(len(vr_zz_vect.shape))])
         rxy_vect = rxy[::step,::step,nphi//2]/au
-        #rxy_vect = np.array([binArray(rxy_vect, i, binstep, binstep) for i in range(len(rxy_vect.shape))])
         zz_vect  = zz[::step,::step,nphi//2]/au
-        #zz_vect  = np.array([binArray(zz_vect, i, binstep, binstep) for i in range(len(zz_vect.shape))])
-        #print (rxy_vect.shape)
+
 
         # plot
         where_plt = np.where((rxy_vect >= rmin/au) & (rxy_vect <= rmax/au))
@@ -954,8 +1181,8 @@ class PTSMODEL():
          vr_xy_vect[where_plt], vr_zz_vect[where_plt],
           units='xy', scale = vscale, angles='uv', color='k', width=width)
 
-        ax3.set_xlabel('radius (au)')
-        ax3.set_ylabel('z (au)')
+        ax3.set_xlabel(r'$r$ (au)')
+        ax3.set_ylabel(r'$z$ (au)')
 
         ax3.set_xlim(0, rmax/au)
         ax3.set_ylim(0, rmax/au)
@@ -972,8 +1199,9 @@ class PTSMODEL():
         xx = rxy*np.cos(phph)
         yy = rxy*np.sin(phph)
 
-        im4   = ax4.pcolormesh(xx_plt[:,-1,:]/au, yy_plt[:,-1,:]/au,
-         nrho_g[:,-1,:], cmap=cmap, norm = colors.LogNorm(vmin = nrho_g_min, vmax=nrho_g_max),
+        indx_mid = np.argmin(np.abs(tt_plt[0,:,0] - np.pi*0.5)) # mid-plane
+        im4   = ax4.pcolormesh(xx_plt[:,indx_mid,:]/au, yy_plt[:,indx_mid,:]/au,
+         nrho_g[:,indx_mid,:], cmap=cmap, norm = colors.LogNorm(vmin = nrho_g_min, vmax=nrho_g_max),
          rasterized=True)
         #im4   = ax4.pcolor(rr[:,-1,:]/au, phph[:,-1,:], nrho_gas[:,-1,:], cmap=cm.coolwarm, norm = colors.LogNorm(vmin = 10., vmax=1.e4))
 
@@ -984,8 +1212,8 @@ class PTSMODEL():
         #v_xx_vect = np.array([binArray(v_xx, i, binstep, binstep) for i in range(len(v_xx.shape))])
         #v_yy_vect = np.array([binArray(v_yy, i, binstep, binstep) for i in range(len(v_yy.shape))])
 
-        xx_vect = xx[::step,-1,::step]/au
-        yy_vect = yy[::step,-1,::step]/au
+        xx_vect = xx[::step,indx_mid,::step]/au
+        yy_vect = yy[::step,indx_mid,::step]/au
         #xx_vect = np.array([binArray(xx_vect, i, binstep, binstep) for i in range(len(xx_vect.shape))])
         #yy_vect = np.array([binArray(yy_vect, i, binstep, binstep) for i in range(len(yy_vect.shape))])
 
@@ -997,8 +1225,8 @@ class PTSMODEL():
           scale = vscale, angles='uv', color='k',width=width)
 
         cbar4 = fig2.colorbar(im4,cax=cax4)
-        ax4.set_xlabel('x (au)')
-        ax4.set_ylabel('y (au)')
+        ax4.set_xlabel(r'$x$ (au)')
+        ax4.set_ylabel(r'$y$ (au)')
 
         ax4.set_xlim(-rmax/au, rmax/au)
         ax4.set_ylim(-rmax/au, rmax/au)
