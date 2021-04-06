@@ -1,8 +1,8 @@
 Protostellar System Model
 ---------------------------
-Build a kinematic model of a protostellar system, which consists of a protostar(s), a disk(s) and an envelope, and calculate the model images. Use the open code [RADMC-3D](https://www.ita.uni-heidelberg.de/~dullemond/software/radmc-3d/) to calculate a tempearture distribution and the solve radiative transfer.
+Build a kinematic model of a protostellar system, which consists of a protostar(s), a disk(s) and an envelope, and calculate the model images. Use the open code [RADMC-3D](https://www.ita.uni-heidelberg.de/~dullemond/software/radmc-3d/) to calculate a tempearture distribution and to solve the radiative transfer.
 
-Currently, coordinates are limitied only to spherical coordinates. A density profile for a disk is cut-off disk. The density and velocity distributions for an envelope model is calculated based on Ulrich 1976.
+Coordinates are limitied only to spherical coordinates for now. A density profile for a disk is the cut-off disk. The density and velocity distributions for an envelope model is calculated based on Ulrich 1976.
 
 
 **Containts**
