@@ -351,9 +351,15 @@ def export_radmc_tofits(outname, f='image.out', obsinfo='obsinfo.txt', hdr=None,
         beam = gaussian2D(xx, yy, area, 0., 0., sigx, sigy, pa = bpa)
 
 
+        '''
         for ichan in range(nlam):
             imconv = outimage[0,ichan,:,:]
             outimage[0,ichan,:,:] = convolve_fft(imconv, beam, nan_treatment='fill')
+        '''
+        outimage = np.array([
+            convolve_fft(outimage[0,ichan,:,:], beam, nan_treatment='fill')
+            for ichan in range(nlam) ])
+        outimage = outimage.reshape(1, nlam, ny, nx)
 
         # in cgs --> Jy/beam
         outimage = IcgsTObeam(outimage,bmaj,bmin)
