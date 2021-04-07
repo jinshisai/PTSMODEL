@@ -70,7 +70,7 @@ class PTSMODEL():
 
         # reading file
         # grid
-        f                = 'amr_grid.inp'
+        f = 'amr_grid.inp'
         if os.path.exists(f) == False:
             print ('ERROR\tread_model: amr_grid.inp cannot be found.')
             return
@@ -114,7 +114,7 @@ class PTSMODEL():
 
         # density
         # dust denisty [g/cm3]
-        f         = 'dust_density.inp'
+        f = 'dust_density.inp'
         if os.path.exists(f) == False:
             print ('WARNING\t: dust_density.inp cannot be found. Put zero for dust density.')
             rho_d = np.zeros(arraysize)
@@ -282,7 +282,7 @@ class PTSMODEL():
         '''
         Calculate Sigma 0, column density of the disk at 1 au, from Mdisk.
         Disk is a cut-off disk.
-        Mdisk = 2 pi int_rin^rout Sig0 (r/1 au)^(-p) dr
+        Mdisk = 2 pi int_rin^rout Sig0 (r/1 au)^p r dr
 
         Args:
             mdisk: disk mass (g)

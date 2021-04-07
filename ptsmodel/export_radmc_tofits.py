@@ -133,9 +133,11 @@ def export_radmc_tofits(outname, f='image.out', obsinfo='obsinfo.txt', hdr=None,
     Export a radmc output file into a fits file.
 
     '''
+    # print
+    print ('Export a radmc image to a fits file.')
+
     # reading file
     print ('reading files...')
-    f       = 'image.out'
     iformat = np.genfromtxt(f, dtype=None, max_rows=1)
     imsize  = np.genfromtxt(f, delimiter='     ',max_rows=1, skip_header=1, dtype=int)
     nlam    = np.genfromtxt(f, max_rows=1, skip_header=2, dtype=int)
@@ -267,8 +269,8 @@ def export_radmc_tofits(outname, f='image.out', obsinfo='obsinfo.txt', hdr=None,
     hdr['CRPIX2']   = ny//2
     hdr['CUNIT2']   = 'deg'
     hdr['CTYPE3']   = 'FREQ'
-    hdr['CRVAL3']   = freq[0]+freq_vsys
-    hdr['CDELT3']   = freq[1] - freq[0]
+    hdr['CRVAL3']   = freq[0]+freq_vsys if nlam >= 2 else freq
+    hdr['CDELT3']   = freq[1] - freq[0] if nlam >= 2 else 1.
     hdr['CRPIX3']   = 1.000000000000E+00
     hdr['CUNIT3']   = 'Hz'
     hdr['CTYPE4']   = 'STOKES'
