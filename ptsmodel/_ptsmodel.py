@@ -896,8 +896,7 @@ class PTSMODEL():
         divider = mpl_toolkits.axes_grid1.make_axes_locatable(ax2)
         cax2    = divider.append_axes('right', '3%', pad='0%')
 
-        indx_mid = np.argmin(np.abs(tt[0,:,0] - np.pi*0.5)) # mid-plane
-        #print (indx_mid)
+        indx_mid = np.argmin(np.abs(self.tt[0,:,0] - np.pi*0.5)) # mid-plane
         im2   = ax2.pcolormesh(xx[:,indx_mid,:]/au, yy[:,indx_mid,:]/au, rho_d[:,indx_mid,:],
          cmap=cmap, norm = colors.LogNorm(vmin = rho_d_min, vmax=rho_d_max), rasterized=True)
         #ax2.scatter(xx[:,-1,:]/au, yy[:,-1,:]/au, marker='x', s=5., color='k')
@@ -1088,7 +1087,7 @@ class PTSMODEL():
         xx = rxy*np.cos(phph)
         yy = rxy*np.sin(phph)
 
-        indx_mid = np.argmin(np.abs(tt_plt[0,:,0] - np.pi*0.5)) # mid-plane
+        indx_mid = np.argmin(np.abs(tt[0,:,0] - np.pi*0.5)) # mid-plane
         im4   = ax4.pcolormesh(xx_plt[:,indx_mid,:]/au, yy_plt[:,indx_mid,:]/au,
          nrho_g[:,indx_mid,:], cmap=cmap, norm = colors.LogNorm(vmin = nrho_g_min, vmax=nrho_g_max),
          rasterized=True)
