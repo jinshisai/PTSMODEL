@@ -1318,8 +1318,7 @@ def vinf_Ul76(r, theta, mstar, rc):
     cgrav  = np.sqrt(Ggrav*mstar/r)
 
     # solve costh0^3 + (-1 + r/rc) costh0 - costh*r/rc = 0
-    costh0 = der_th0ph0(r,theta,rc)
-    sinth0 = np.sqrt(1.-costh0*costh0) # 0 < theta < pi/2
+    costh0, sinth0 = der_th0ph0(r,theta,rc)
 
     vr     = - cgrav*np.sqrt(1+(costh/costh0))
     vtheta = cgrav*(costh0 - costh)\
