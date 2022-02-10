@@ -254,7 +254,8 @@ class PTSMODEL():
         if sig0:
             self.sig0 = mdisk
         else:
-            sig0 = PTSMODEL.sig0_disk(mdisk, rin, rout, plsig)
+            self.sig0_disk(mdisk, rin, rout, plsig)
+            sig0 = self.sig0
 
         sigma = sig0 * (rxy/au)**plsig # surface density as a function of r
 
@@ -278,7 +279,7 @@ class PTSMODEL():
 
 
     # Column density at 1 au
-    def sig0_disk(mdisk, rin, rout, p):
+    def sig0_disk(self, mdisk, rin, rout, p):
         '''
         Calculate Sigma 0, column density of the disk at 1 au, from Mdisk.
         Disk is a cut-off disk.
@@ -299,63 +300,10 @@ class PTSMODEL():
         sig0 = mdisk/(2.*np.pi*rint) # (g/cm^2)
         #print (rint, Sig0)
 
-        return sig0
+        self.sig0 = sig0
 
 
     # Density distribution of the envelope (Ulrich76)
-    # Derive theta0 and phi0
-    def der_th0ph0(self, r,theta,rc):
-        '''
-        Derive theta0 and phi0 from given r, theta, phi.
-        See Ulrich (1976) for the detail. Here 0 < theta < pi/2.
-        To get solutions, see also Mendoza (2004)
-        '''
-        # assuming symmetry about the xy-plane to treat pi/2 < theta < pi
-        index = np.where(theta > np.pi*0.5)
-        theta[index] = np.pi - theta[index]
-        costh        = np.cos(theta)
-
-        # solve costh0^3 + (-1 + r/rc) costh0 - costh*r/rc = 0
-        # Mendoza (2004)
-        costh0      = np.zeros(r.shape)
-        term_rcos_2 = r/rc*costh/2.
-        term_1r3    = (1.-r/rc)/3.
-
-        # for r = rc
-        if len(np.where(r == rc)[0]) >= 1:
-            costh0[np.where(r == rc)] = costh[np.where(r == rc)]**(1./3.)
-
-        # for r > rc
-        if len(np.where(r > rc)[0]) >= 1:
-            term_sinh = np.sinh(1./3.*np.arcsinh(term_rcos_2[np.where(r > rc)]/(-term_1r3[np.where(r > rc)])**(3./2.)))
-            costh0[np.where(r > rc)] = 2.*(-term_1r3[np.where(r > rc)])**0.5*term_sinh
-
-        # for r < rc
-        case = term_rcos_2**2. - term_1r3**3.
-        if len(np.where((r < rc) & (case > 0.))[0]) >= 1:
-            term_cosh   = np.cosh(1./3.*np.arccosh(term_rcos_2[np.where((r < rc) & (case > 0.))]\
-                /(term_1r3[np.where((r < rc) & (case > 0.))])**(3./2.)))
-            costh0[np.where((r < rc) & (case > 0.))] =\
-             2.*(term_1r3[np.where((r < rc) & (case > 0.))])**0.5*term_cosh
-
-
-        if len(np.where((r < rc) & (case < 0.))[0]) >= 1:
-            term_cos    = np.cos(1./3.*np.arccos(term_rcos_2[np.where((r < rc) & (case < 0.))]\
-                /(term_1r3[np.where((r < rc) & (case < 0.))])**(3./2.)))
-            costh0[np.where((r < rc) & (case < 0.))] =\
-             2.*(term_1r3[np.where((r < rc) & (case < 0.))])**0.5*term_cos
-
-        # put theta back to input, 0 < theta < pi
-        theta[index]  = np.pi - theta[index]
-        costh0[index] = - costh0[index]
-
-        sinth0 = np.sqrt(1.-costh0*costh0) # 0 < theta < pi/2, don't use here though
-
-        self.costh0 = costh0
-        self.sinth0 = sinth0
-
-
-    # Density distribution
     def rho_envUl76(self, rho0, rc, re_in=None, re_out=None):
         '''
         Calculate density distribution of the infalling envelope model proposed in Ulrich (1976).
@@ -376,9 +324,9 @@ class PTSMODEL():
         costh = np.cos(theta)
 
         # solve costh0^3 + (-1 + r/rc) costh0 - costh*r/rc = 0
-        self.der_th0ph0(r,theta,rc)
-        costh0 = self.costh0
-        sinth0 = self.sinth0
+        costh0, sinth0 = der_th0ph0(r,theta,rc)
+        self.costh0 = costh0
+        self.sinth0 = sinth0
 
         rho = rho0*(r/rc)**(-1.5)*(1.+costh/costh0)**(-0.5)\
          *(costh/(2.*costh0)+rc/r*costh0*costh0)**(-1.)
@@ -416,7 +364,7 @@ class PTSMODEL():
           where H is the scale height of the sheet. eta=0 means no modulation.
            eat getting infinity, the envelope becomes infinitesimally thin.
         '''
-        PTSMODEL.rho_envUl76(self, rho0, rc, re_in=None, re_out=None)
+        self.rho_envUl76(rho0, rc, re_in=None, re_out=None)
         rho_u76 = self.rho_env
         costh0  = self.costh0
         sinth0  = self.sinth0
@@ -467,8 +415,9 @@ class PTSMODEL():
         #index = np.where(theta > np.pi*0.5)
 
         # solve costh0^3 + (-1 + r/rc) costh0 - costh*r/rc = 0
-        costh0 = PTSMODEL.der_th0ph0(r,theta,rc)
-        sinth0 = np.sqrt(1. - costh0*costh0) # 0 < theta0 < 180., sin is always positive
+        costh0, sinth0 = der_th0ph0(r,theta,rc)
+        self.costh0 = costh0
+        self.sinth0 = sinth0
         tanth0 = sinth0/costh0
         theta0 = np.arccos(costh0)
 
@@ -605,13 +554,13 @@ class PTSMODEL():
 
         if self.rho_env.size:
             # with envelope
-            vr_env, vtheta_env, vphi_env = PTSMODEL.vinf_Ul76(rr, tt, self.mstar, self.rc)
+            vr_env, vtheta_env, vphi_env = vinf_Ul76(rr, tt, self.mstar, self.rc)
             vr     = vr_env
             vtheta = vtheta_env
             vphi   = vphi_env
 
         if self.rho_disk.size:
-            vr_disk, vtheta_disk, vphi_disk = PTSMODEL.v_steadydisk(rxy, self.mstar)
+            vr_disk, vtheta_disk, vphi_disk = v_steadydisk(rxy, self.mstar)
             where_disk = self.where_disk
             if len(where_disk[0]):
                 vr[where_disk]     = vr_disk[where_disk]
@@ -626,68 +575,6 @@ class PTSMODEL():
         self.vtheta = vtheta
         self.vphi   = vphi
 
-
-
-    # Keplerian velocity
-    def Vkep(radius, Mstar):
-        '''
-        Calculate Keplerian velocity in cgs unit.
-
-        radius: radius [cm]
-        Mstar: central stellar mass [g]
-        '''
-        Vkep = np.sqrt(Ggrav*Mstar/radius)
-        return Vkep
-
-
-    # Vrotation
-    def vrot_plaw(radius, v0, r0, p):
-        '''
-        Calculate Keplerian velocity in cgs unit.
-
-        radius: radius [cm]
-        Mstar: central stellar mass [g]
-        '''
-        vrot = v0*(radius/r0)**(-p)
-        return vrot
-
-
-    # Velocity field of a disk
-    def v_steadydisk(rxy, mstar):
-        # v-field of the disk
-        vr     = np.zeros(rxy.shape)
-        vtheta = np.zeros(rxy.shape)
-        vphi   = PTSMODEL.Vkep(rxy, mstar)   # Keplerian rotation
-
-        return vr, vtheta, vphi
-
-
-    # Infall velocity
-    def vinf_Ul76(r, theta, mstar, rc):
-        '''
-        Ulrich (1976) infall model
-
-        Args
-        Mstar: central star mass[g]
-        theta0, phi0: initial position in polar coorinate [rad]
-        theta, phi, r: current poistion in polar coordinate [rad], [au]
-        '''
-        # coordinates
-        costh  = np.cos(theta)
-        sinth  = np.sin(theta)
-        cgrav  = np.sqrt(Ggrav*mstar/r)
-
-        # solve costh0^3 + (-1 + r/rc) costh0 - costh*r/rc = 0
-        costh0 = PTSMODEL.der_th0ph0(r,theta,rc)
-        sinth0 = np.sqrt(1.-costh0*costh0) # 0 < theta < pi/2
-
-        vr     = - cgrav*np.sqrt(1+(costh/costh0))
-        vtheta = cgrav*(costh0 - costh)\
-            *np.sqrt((costh0+costh)/(costh0*sinth*sinth))
-        vphi = cgrav*(sinth0/sinth)\
-            *np.sqrt(1.-costh/costh0)
-
-        return vr, vtheta, vphi
 
     # Turbulence
     def vturbulence(self, values):
@@ -1380,3 +1267,115 @@ class PTSMODEL():
         fig.savefig('temp_dist.pdf', transparent=True)
         plt.close()
 
+
+# Keplerian velocity
+def Vkep(radius, Mstar):
+    '''
+    Calculate Keplerian velocity in cgs unit.
+
+    radius: radius [cm]
+    Mstar: central stellar mass [g]
+    '''
+    Vkep = np.sqrt(Ggrav*Mstar/radius)
+    return Vkep
+
+
+# Vrotation
+def vrot_plaw(radius, v0, r0, p):
+    '''
+    Calculate Keplerian velocity in cgs unit.
+
+    radius: radius [cm]
+    Mstar: central stellar mass [g]
+    '''
+    vrot = v0*(radius/r0)**(-p)
+    return vrot
+
+
+# Velocity field of a disk
+def v_steadydisk(rxy, mstar):
+    # v-field of the disk
+    vr     = np.zeros(rxy.shape)
+    vtheta = np.zeros(rxy.shape)
+    vphi   = Vkep(rxy, mstar)   # Keplerian rotation
+
+    return vr, vtheta, vphi
+
+
+# Infall velocity
+def vinf_Ul76(r, theta, mstar, rc):
+    '''
+    Ulrich (1976) infall model
+
+    Args
+    Mstar: central star mass[g]
+    theta0, phi0: initial position in polar coorinate [rad]
+    theta, phi, r: current poistion in polar coordinate [rad], [au]
+    '''
+    # coordinates
+    costh  = np.cos(theta)
+    sinth  = np.sin(theta)
+    cgrav  = np.sqrt(Ggrav*mstar/r)
+
+    # solve costh0^3 + (-1 + r/rc) costh0 - costh*r/rc = 0
+    costh0 = der_th0ph0(r,theta,rc)
+    sinth0 = np.sqrt(1.-costh0*costh0) # 0 < theta < pi/2
+
+    vr     = - cgrav*np.sqrt(1+(costh/costh0))
+    vtheta = cgrav*(costh0 - costh)\
+        *np.sqrt((costh0+costh)/(costh0*sinth*sinth))
+    vphi = cgrav*(sinth0/sinth)\
+        *np.sqrt(1.-costh/costh0)
+
+    return vr, vtheta, vphi
+
+
+# Derive theta0 and phi0
+def der_th0ph0(r,theta,rc):
+    '''
+    Derive theta0 and phi0 from given r, theta, phi.
+    See Ulrich (1976) for the detail. Here 0 < theta < pi/2.
+    To get solutions, see also Mendoza (2004)
+    '''
+    # assuming symmetry about the xy-plane to treat pi/2 < theta < pi
+    index = np.where(theta > np.pi*0.5)
+    theta[index] = np.pi - theta[index]
+    costh        = np.cos(theta)
+
+    # solve costh0^3 + (-1 + r/rc) costh0 - costh*r/rc = 0
+    # Mendoza (2004)
+    costh0      = np.zeros(r.shape)
+    term_rcos_2 = r/rc*costh/2.
+    term_1r3    = (1.-r/rc)/3.
+
+    # for r = rc
+    if len(np.where(r == rc)[0]) >= 1:
+        costh0[np.where(r == rc)] = costh[np.where(r == rc)]**(1./3.)
+
+    # for r > rc
+    if len(np.where(r > rc)[0]) >= 1:
+        term_sinh = np.sinh(1./3.*np.arcsinh(term_rcos_2[np.where(r > rc)]/(-term_1r3[np.where(r > rc)])**(3./2.)))
+        costh0[np.where(r > rc)] = 2.*(-term_1r3[np.where(r > rc)])**0.5*term_sinh
+
+    # for r < rc
+    case = term_rcos_2**2. - term_1r3**3.
+    if len(np.where((r < rc) & (case > 0.))[0]) >= 1:
+        term_cosh   = np.cosh(1./3.*np.arccosh(term_rcos_2[np.where((r < rc) & (case > 0.))]\
+            /(term_1r3[np.where((r < rc) & (case > 0.))])**(3./2.)))
+        costh0[np.where((r < rc) & (case > 0.))] =\
+         2.*(term_1r3[np.where((r < rc) & (case > 0.))])**0.5*term_cosh
+
+
+    if len(np.where((r < rc) & (case < 0.))[0]) >= 1:
+        term_cos    = np.cos(1./3.*np.arccos(term_rcos_2[np.where((r < rc) & (case < 0.))]\
+            /(term_1r3[np.where((r < rc) & (case < 0.))])**(3./2.)))
+        costh0[np.where((r < rc) & (case < 0.))] =\
+         2.*(term_1r3[np.where((r < rc) & (case < 0.))])**0.5*term_cos
+
+    # put theta back to input, 0 < theta < pi
+    theta[index]  = np.pi - theta[index]
+    costh0[index] = - costh0[index]
+
+    sinth0 = np.sqrt(1.-costh0*costh0) # 0 < theta < pi/2, don't use here though
+
+    return costh0, sinth0
