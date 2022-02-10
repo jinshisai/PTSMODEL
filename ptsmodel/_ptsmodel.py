@@ -304,7 +304,7 @@ class PTSMODEL():
 
     # Density distribution of the envelope (Ulrich76)
     # Derive theta0 and phi0
-    def der_th0ph0(r,theta,rc):
+    def der_th0ph0(self, r,theta,rc):
         '''
         Derive theta0 and phi0 from given r, theta, phi.
         See Ulrich (1976) for the detail. Here 0 < theta < pi/2.
@@ -349,7 +349,10 @@ class PTSMODEL():
         theta[index]  = np.pi - theta[index]
         costh0[index] = - costh0[index]
 
-        return costh0
+        sinth0 = np.sqrt(1.-costh0*costh0) # 0 < theta < pi/2, don't use here though
+
+        self.costh0 = costh0
+        self.sinth0 = sinth0
 
 
     # Density distribution
@@ -373,10 +376,9 @@ class PTSMODEL():
         costh = np.cos(theta)
 
         # solve costh0^3 + (-1 + r/rc) costh0 - costh*r/rc = 0
-        costh0 = PTSMODEL.der_th0ph0(r,theta,rc)
-        sinth0 = np.sqrt(1.-costh0*costh0) # 0 < theta < pi/2, don't use here though
-        self.costh0 = costh0
-        self.sinth0 = sinth0
+        self.der_th0ph0(r,theta,rc)
+        costh0 = self.costh0
+        sinth0 = self.sinth0
 
         rho = rho0*(r/rc)**(-1.5)*(1.+costh/costh0)**(-0.5)\
          *(costh/(2.*costh0)+rc/r*costh0*costh0)**(-1.)
