@@ -21,7 +21,8 @@ rs  = 6.96e10        # Solar radius            [cm]
 
 
 # functions
-def density(model, rho_d_range=[], nrho_g_range=[], xlim=[], ylim=[],
+def dust_density(model, outname = None,
+	rho_range=[], xlim=[], ylim=[],
 	figsize=(11.69,8.27), cmap='coolwarm',
 	 fontsize=14, wspace=0.4, hspace=0.2):
 	'''
@@ -64,17 +65,13 @@ def density(model, rho_d_range=[], nrho_g_range=[], xlim=[], ylim=[],
 	#zz     = self.zz
 
 	rho_d  = model.rho_d
-	nrho_g = model.nrho_g
 
 	xx = rxy*np.cos(phph)
 	yy = rxy*np.sin(phph)
 
 	# for plot
 	rho_d[np.where(rho_d <= 0.)] = np.nan
-	nrho_g[np.where(nrho_g <= 0.)] = np.nan
-
-	rho_d_range = rho_d_range if len(rho_d_range) ==2 else [np.nanmin(rho_d), np.nanmax(rho_d)]
-	nrho_g_range = nrho_g_range if len(nrho_g_range) == 2 else [np.nanmin(nrho_g), np.nanmax(nrho_g)]
+	rho_range = rho_range if len(rho_range) ==2 else [np.nanmin(rho_d), np.nanmax(rho_d)]
 
 	xlim = xlim if len(xlim) == 2 else [np.nanmin(xx)/au, np.nanmax(xx)/au]
 	ylim = ylim if len(ylim) == 2 else [np.nanmin(yy)/au, np.nanmax(yy)/au]
@@ -89,7 +86,7 @@ def density(model, rho_d_range=[], nrho_g_range=[], xlim=[], ylim=[],
 	cax1    = divider.append_axes('right', '3%', pad='0%')
 
 	im1   = ax1.pcolormesh(rxy[:,:,nphi//2]/au, zz[:,:,nphi//2]/au, rho_d[:,:,nphi//2], cmap=cmap,
-	 norm = colors.LogNorm(vmin = rho_d_range[0], vmax=rho_d_range[1]), rasterized=True)
+	 norm = colors.LogNorm(vmin = rho_range[0], vmax=rho_range[1]), rasterized=True)
 	cbar1 = fig1.colorbar(im1, cax=cax1)
 
 	ax1.set_xlabel(r'$r$ (au)')
@@ -104,10 +101,8 @@ def density(model, rho_d_range=[], nrho_g_range=[], xlim=[], ylim=[],
 	cax2    = divider.append_axes('right', '3%', pad='0%')
 
 	indx_mid = np.argmin(np.abs(theta_c - np.pi*0.5)) # mid-plane
-	#print (indx_mid)
 	im2   = ax2.pcolormesh(xx[:,indx_mid,:]/au, yy[:,indx_mid,:]/au, rho_d[:,indx_mid,:],
-	 cmap=cmap, norm = colors.LogNorm(vmin = rho_d_range[0], vmax=rho_d_range[1]), rasterized=True)
-	#ax2.scatter(xx[:,-1,:]/au, yy[:,-1,:]/au, marker='x', s=5., color='k')
+	 cmap=cmap, norm = colors.LogNorm(vmin = rho_range[0], vmax=rho_range[1]), rasterized=True)
 	cbar2 = fig1.colorbar(im2,cax=cax2)
 
 	ax2.set_xlabel(r'$x$ (au)')
@@ -115,6 +110,71 @@ def density(model, rho_d_range=[], nrho_g_range=[], xlim=[], ylim=[],
 	cbar2.set_label(r'$\rho_\mathrm{dust}\ \mathrm{(g\ cm^{-3})}$')
 	ax2.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True, pad=9)
 	ax2.set_aspect(1)
+
+	# save figures
+	fig1.subplots_adjust(wspace=wspace, hspace=hspace)
+	if outname:
+		fig1.savefig(outname + '.pdf', transparent=True)
+	else:
+		fig1.savefig('dust_density.pdf',transparent=True)
+
+
+def gas_density(model, outname = None, nrho_range=[], xlim=[], ylim=[],
+	rlim=[], zlim=[],
+	figsize=(11.69,8.27), cmap='coolwarm',
+	 fontsize=14, wspace=0.4, hspace=0.2):
+	'''
+	Visualize density distribution as 2-D slices.
+
+	Args:
+	    rho_d_range:
+	    nrho_g_range:
+	'''
+
+	# check input
+	if type(model) == ptsmodel.PTSMODEL:
+		pass
+	else:
+		print ("ERROR\tvisualize: input must be PTSMODEL object.")
+
+	# setting for figures
+	#plt.rcParams['font.family'] ='Arial'    # font (Times New Roman, Helvetica, Arial)
+	plt.rcParams['xtick.direction'] = 'in'  # directions of x ticks ('in'), ('out') or ('inout')
+	plt.rcParams['ytick.direction'] = 'in'  # directions of y ticks ('in'), ('out') or ('inout')
+	plt.rcParams['font.size'] = fontsize    # fontsize
+
+	# read model
+	# dimension
+	nr, ntheta, nphi = model.gridshape
+
+	# edge of cells
+	#  cuz the plot method, pcolormesh, requires the edge of each cell
+	ri     = model.ri
+	thetai = model.thetai
+	phii   = model.phii
+	theta_c = (thetai[0:ntheta] + thetai[1:ntheta+1])*0.5 # cell center
+
+	rr, tt, phph = np.meshgrid(ri, thetai, phii, indexing='ij')
+	rxy = rr*np.sin(tt)      # radius in xy-plane, r*sin(theta)
+	zz  = rr*np.cos(tt)      # z, r*cos(theta)
+	#rr     = self.rr
+	#phph   = self.phph
+	#rxy    = self.rxy
+	#zz     = self.zz
+
+	nrho_g = model.nrho_g
+
+	xx = rxy*np.cos(phph)
+	yy = rxy*np.sin(phph)
+
+	# for plot
+	nrho_g[np.where(nrho_g <= 0.)] = np.nan
+	nrho_range = nrho_range if len(nrho_range) == 2 else [np.nanmin(nrho_g), np.nanmax(nrho_g)]
+
+	xlim = xlim if len(xlim) == 2 else [np.nanmin(xx)/au, np.nanmax(xx)/au]
+	ylim = ylim if len(ylim) == 2 else [np.nanmin(yy)/au, np.nanmax(yy)/au]
+	rlim = rlim if len(rlim) == 2 else [0, np.nanmax(rr)/au]
+	zlim = zlim if len(zlim) == 2 else [0, np.nanmax(zz)/au]
 
 
 
@@ -127,11 +187,13 @@ def density(model, rho_d_range=[], nrho_g_range=[], xlim=[], ylim=[],
 	cax3    = divider.append_axes('right', '3%', pad='0%')
 
 	im3   = ax3.pcolormesh(rxy[:,:,nphi//2]/au, zz[:,:,nphi//2]/au, nrho_g[:,:,nphi//2],
-	 cmap=cmap, norm = colors.LogNorm(vmin = nrho_g_range[0], vmax=nrho_g_range[1]), rasterized=True)
+	 cmap=cmap, norm = colors.LogNorm(vmin = nrho_range[0], vmax=nrho_range[1]), rasterized=True)
 	cbar3 = fig2.colorbar(im3,cax=cax3)
 
 	ax3.set_xlabel(r'$r$ (au)')
 	ax3.set_ylabel(r'$z$ (au)')
+	ax3.set_xlim(rlim)
+	ax3.set_ylim(zlim)
 	#cbar3.set_label(r'$n_\mathrm{gas}\ \mathrm{(cm^{-3})}$')
 	ax3.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True, pad=9)
 	ax3.set_aspect(1)
@@ -139,27 +201,28 @@ def density(model, rho_d_range=[], nrho_g_range=[], xlim=[], ylim=[],
 
 	# plot 2; density in r vs phi (xy-plane)
 	ax4     = fig2.add_subplot(122)
-	divider = mpl_toolkits.axes_grid1.make_axes_locatable(ax4)
+	divider = make_axes_locatable(ax4)
 	cax4    = divider.append_axes('right', '3%', pad='0%')
 
+	indx_mid = np.argmin(np.abs(theta_c - np.pi*0.5)) # mid-plane
 	im4   = ax4.pcolormesh(xx[:,indx_mid,:]/au, yy[:,indx_mid,:]/au, nrho_g[:,indx_mid,:], cmap=cmap,
-	 norm = colors.LogNorm(vmin = nrho_g_range[0], vmax=nrho_g_range[1]), rasterized=True)
-	#im4   = ax4.pcolor(rr[:,-1,:]/au, phph[:,-1,:], nrho_gas[:,-1,:], cmap=cm.coolwarm, norm = colors.LogNorm(vmin = 10., vmax=1.e4))
+	 norm = colors.LogNorm(vmin = nrho_range[0], vmax=nrho_range[1]), rasterized=True)
 
 	cbar4 = fig2.colorbar(im4,cax=cax4)
 	ax4.set_xlabel(r'$x$ (au)')
 	ax4.set_ylabel(r'$y$ (au)')
+	ax4.set_xlim(xlim)
+	ax4.set_ylim(ylim)
 	cbar4.set_label(r'$n_\mathrm{gas}\ \mathrm{(cm^{-3})}$')
 	ax4.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True, pad=9)
 	ax4.set_aspect(1)
 
 
-	# save figures
-	fig1.subplots_adjust(wspace=wspace, hspace=hspace)
-	fig1.savefig('dust_density.pdf',transparent=True)
-
 	fig2.subplots_adjust(wspace=wspace, hspace=hspace)
-	fig2.savefig('gas_density.pdf',transparent=True)
+	if outname:
+		fig2.savefig(outname + '.pdf', transparent=True)
+	else:
+		fig2.savefig('gas_density.pdf',transparent=True)
 	plt.close()
 
 
