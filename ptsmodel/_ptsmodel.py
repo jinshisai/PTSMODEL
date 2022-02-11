@@ -729,7 +729,7 @@ class PTSMODEL():
 
 
     # Make input files for RADMC-3D
-    def export_to_radmc3d(self, nphot, dustopac='nrmS03',line='c18o'):
+    def export_to_radmc3d(self, nphot, dustopac='nrmS03',line='c18o', iseed = -5415):
         nr, ntheta, nphi = self.gridshape
         ############### Output the model into radmc3d files ############
         # Write the wavelength_micron.inp file
@@ -835,7 +835,8 @@ class PTSMODEL():
         # Write the radmc3d.inp control file
         #
         with open('radmc3d.inp','w+') as f:
-            f.write('nphot = %d\n'%(nphot))
+            f.write('nphot = %d\n'%nphot)
+            f.write('iseed = %d\n'%iseed)
             f.write('scattering_mode_max = 0\n')
             f.write('iranfreqmode = 1\n')
             f.write('tgas_eq_tdust = 1')
