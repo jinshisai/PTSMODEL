@@ -42,6 +42,9 @@ class PTSMODEL():
         self.modelname = modelname
 
         # initialize
+        self.disk     = 0
+        self.envelope = 0
+        self.cavity   = 0
         self.rho_disk = np.array([])
         self.rho_env  = np.array([])
         self.rho_g    = np.array([])
@@ -103,6 +106,9 @@ class PTSMODEL():
         self.ri        = ri
         self.thetai    = thetai
         self.phii      = phii
+        self.r         = rc
+        self.theta     = thetac
+        self.phi       = phic
         self.gridshape = arraysize
         self.grid      = qq
         self.rr        = rr
@@ -200,6 +206,10 @@ class PTSMODEL():
         thetac   = 0.5 * ( thetai[0:ntheta] + thetai[1:ntheta+1] )
         phic     = 0.5 * ( phii[0:nphi] + phii[1:nphi+1] )
 
+        self.r         = rc
+        self.theta     = thetac
+        self.phi       = phic
+
         # make a grid
         qq = np.meshgrid(rc,thetac,phic,indexing='ij')
 
@@ -242,6 +252,9 @@ class PTSMODEL():
              If True, mdisk will be treated as sigma_0, column density at 1 au, and
               disk density profile is thus calculated from Sigma_0 rather than Mdisk.
         '''
+        # put a disk
+        self.disk = 1
+
         # grid
         rxy = self.rxy
         zz  = self.zz
@@ -314,6 +327,10 @@ class PTSMODEL():
             rho0: density at rc (g cm^-3)
             re_in, re_out: inner and outer radii of an envelope (cm)
         '''
+        # put an envelope
+        self.envelope = 1
+
+        # parameters
         self.rho_e0 = rho0
         self.rc     = rc
         self.re_in  = re_in
@@ -446,7 +463,7 @@ class PTSMODEL():
         # densities
         self.rho_envUl76(rho0, rc, re_in=None, re_out=None) # spherical envelope
         rho_sp = self.rho_env
-        rho_fl = np.zeros(rho_sp.shape)                                        # flow
+        rho_fl = np.zeros(rho_sp.shape)                     # flow
 
         # flow
         #index_th0 = np.where((theta0 >= theta0_0-delth0) & (theta0 <= theta0_0+delth0))
@@ -492,7 +509,17 @@ class PTSMODEL():
         return rho_fl
 
 
-    def rho_model(self, Xconv, mu=2.8, gtod_ratio = 100.):
+    def outflow_cavity(self, ang, rho_cavity=0., func=None):
+        '''
+        Open an outflow cavity
+        '''
+
+        self.cavity = 1
+        self.where_cavity = self.tt <= ang*np.pi/180.
+        self.rho_cavity   = rho_cavity
+
+
+    def rho_model(self, Xconv, mu=2.8, gtod_ratio = 100., disk_height=1):
         '''
         Make a density model
 
@@ -503,21 +530,29 @@ class PTSMODEL():
         '''
         rho = np.zeros(self.gridshape)
 
-        # Disk
-        if self.rho_disk.size:
-            where_disk = np.where((self.rxy <= self.rdisk_out) & (np.abs(self.zz) <= self.hh))
+        # Density
+        if (self.disk == 1) & (self.envelope == 1):
+            # disk + envelope
 
-        # Envelope
-        if self.rho_env.size:
-            rho = self.rho_env # with envelope
-        else:
-            where_disk =  (array([]),) # only disk
+            # assuming the disk height is one scale height
+            where_disk = np.where((self.rxy <= self.rdisk_out) & (np.abs(self.zz) <= self.hh*disk_height))
+            self.where_disk = where_disk
 
-        # density
-        if len(where_disk[0]):
-            rho[where_disk] = self.rho_disk[where_disk] # disk + envelope
+            rho = self.rho_env                          # Put an envelope
+            rho[where_disk] = self.rho_disk[where_disk] # Put a disk within an envelope
+        elif (self.disk == 1) & (self.envelope == 0):
+            # disk only
+            rho = self.rho_disk
+        elif (self.disk == 0) & (self.envelope == 1):
+            # envelope only
+            rho = self.rho_env
         else:
-            rho = self.rho_disk # only disk
+            print('WARNING: No structure is input.')
+
+
+        # Outflow cavity
+        if self.cavity:
+            rho[self.where_cavity] = self.rho_cavity
 
         # density of the total gas (H2 gas) & dust
         rho_h2 = rho
@@ -532,7 +567,6 @@ class PTSMODEL():
         self.rho_d  = rho/gtod_ratio
         self.rho_g  = rho_g
         self.nrho_g = nrho_g
-        self.where_disk = where_disk
 
 
     # Velocity distributions
@@ -552,24 +586,31 @@ class PTSMODEL():
             print ('ERROR: No density distribution. Make density distribution before calculating v-field.')
             return
 
-        if self.rho_env.size:
-            # with envelope
+        if (self.disk ==1) & (self.envelope == 1):
+            # v_envelope
             vr_env, vtheta_env, vphi_env = vinf_Ul76(rr, tt, self.mstar, self.rc)
             vr     = vr_env
             vtheta = vtheta_env
             vphi   = vphi_env
 
-        if self.rho_disk.size:
+            # v_disk
             vr_disk, vtheta_disk, vphi_disk = v_steadydisk(rxy, self.mstar)
             where_disk = self.where_disk
-            if len(where_disk[0]):
-                vr[where_disk]     = vr_disk[where_disk]
-                vtheta[where_disk] = vtheta_disk[where_disk]
-                vphi[where_disk]   = vphi_disk[where_disk]
-            else:
-                vr     = vr_disk
-                vtheta = vtheta_disk
-                vphi   = vphi_disk
+            vr[where_disk]     = vr_disk[where_disk]
+            vtheta[where_disk] = vtheta_disk[where_disk]
+            vphi[where_disk]   = vphi_disk[where_disk]
+        elif (self.disk == 1) & (self.envelope == 0):
+            vr_disk, vtheta_disk, vphi_disk = v_steadydisk(rxy, self.mstar)
+            vr     = vr_disk
+            vtheta = vtheta_disk
+            vphi   = vphi_disk
+        elif (self.disk == 0) & (self.envelope == 1):
+            vr_env, vtheta_env, vphi_env = vinf_Ul76(rr, tt, self.mstar, self.rc)
+            vr     = vr_env
+            vtheta = vtheta_env
+            vphi   = vphi_env
+        else:
+            print('WARNING: No structure is input.')
 
         self.vr     = vr
         self.vtheta = vtheta
