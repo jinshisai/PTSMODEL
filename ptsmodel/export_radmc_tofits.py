@@ -125,7 +125,7 @@ def rotate2d(x, y, angle, deg=True, coords=False):
 
 
 # export
-def export_radmc_tofits(outname, f='image.out', obsinfo='obsinfo.txt', hdr=None, dist=140.,
+def export_radmc_tofits(outname, f='image.out', obsinfo='obsinfo.txt', restfreq=0, hdr=None, dist=140.,
     coordinate_center = '0h0m0.0s 0d0m0.0s', projection='SIN', frame = 'fk5', vsys=0,
     obname=None, beam_convolution=True, beam=[], Tb=False, add_noise=False, rms=None,
     noise_scale_factor=1.5, overwrite=False):
@@ -148,7 +148,7 @@ def export_radmc_tofits(outname, f='image.out', obsinfo='obsinfo.txt', hdr=None,
     #print iformat, imsize,nlam,pixsize,lam
 
     if obsinfo:
-        inc, restfreq, pa = np.genfromtxt(obsinfo,unpack=True,delimiter=' ',usecols=(0,1,3))
+        inc, pa = np.genfromtxt(obsinfo,unpack=True,delimiter=' ',usecols=(0,3))
     else:
         print ('ERROR\texport_radmc_tofits: No observing information file.')
         return
