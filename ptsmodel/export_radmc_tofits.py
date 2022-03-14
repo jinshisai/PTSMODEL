@@ -125,7 +125,7 @@ def rotate2d(x, y, angle, deg=True, coords=False):
 
 
 # export
-def export_radmc_tofits(outname, f='image.out', obsinfo='obsinfo.txt', restfreq=0, hdr=None, dist=140.,
+def export_radmc_tofits(outname, f='image.out', obsinfo=None, restfreq=None, hdr=None, dist=140.,
     coordinate_center = '0h0m0.0s 0d0m0.0s', projection='SIN', frame = 'fk5', vsys=0,
     obname=None, beam_convolution=True, beam=[], Tb=False, add_noise=False, rms=None,
     noise_scale_factor=1.5, overwrite=False):
@@ -133,10 +133,13 @@ def export_radmc_tofits(outname, f='image.out', obsinfo='obsinfo.txt', restfreq=
     Export a radmc output file into a fits file.
 
     '''
-    # print
     print ('Export a radmc image to a fits file.')
 
-    # reading file
+    # obs. info.
+    if obsinfo is None:
+        obsinfo = f.replace('.out', '.obsinfo')
+
+    # read image file
     print ('reading files...')
     iformat = np.genfromtxt(f, dtype=None, max_rows=1)
     imsize  = np.genfromtxt(f, delimiter='     ',max_rows=1, skip_header=1, dtype=int)
@@ -147,11 +150,16 @@ def export_radmc_tofits(outname, f='image.out', obsinfo='obsinfo.txt', restfreq=
     image   = data.values
     #print iformat, imsize,nlam,pixsize,lam
 
-    if obsinfo:
-        inc, pa = np.genfromtxt(obsinfo,unpack=True,delimiter=' ',usecols=(0,3))
-    else:
-        print ('ERROR\texport_radmc_tofits: No observing information file.')
+
+    # rest frequency
+    if os.path.exists(obsinfo):
+        restfreq, inc, pa = np.genfromtxt(obsinfo, unpack=True, delimiter=' ')
+    elif restfreq is None:
+        print ('ERROR\texport_radmc_tofits: Rest frequency is not found.')
         return
+    else:
+        inc = None
+        pa  = None
 
     # grid
     nx, ny     = imsize
@@ -282,14 +290,14 @@ def export_radmc_tofits(outname, f='image.out', obsinfo='obsinfo.txt', restfreq=
     hdr['PV2_2']    = 0.000000000000E+00
     hdr['RESTFRQ']  = (restfreq, 'Rest Frequency (Hz)')
     hdr['SPECSYS']  = ('LSRK', 'Spectral reference frame')
-    hdr['ALTRVAL']  = (1.519999627520E+03, 'ALTernate frequency reference value')
-    hdr['ALTRPIX']  = (1.000000000000E+00, 'ALTernate frequency reference pixel')
+    hdr['ALTRVAL']  = (0.000000000000E+00, 'Alternate frequency reference value')
+    hdr['ALTRPIX']  = (1.000000000000E+00, 'Alternate frequency reference pixel')
     hdr['VELREF']   = (257, '1 LSR, 2 HEL, 3 OBS, +256 Radio')
     hdr['TELESCOP'] = 'None'
-    hdr['OBSERVER'] = 'Jinshi Sai/RADMC3D'
+    hdr['OBSERVER'] = 'RADMC3D'
     hdr['DATE']     = (today, 'Date FITS file was written')
-    hdr['INC_MDL']  = inc
-    hdr['PA_MDL']   = pa
+    if inc is not None: hdr['INC'] = inc
+    if pa is not None: hdr['PA']   = pa
     #print hdr
 
 

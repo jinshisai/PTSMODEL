@@ -6,28 +6,40 @@ email: jn.insa.sai@gmail.com
 '''
 
 # modules
+import os
+import sys
+import shutil
 import numpy as np
-import time
 import matplotlib.pyplot as plt
+from astropy import constants, units
 #import matplotlib
 #matplotlib.use('TkAgg')
 
+from .model_utils import read_lamda_moldata, image_contsub
+from . import model_utils
 
+# constants (in cgs)
 
-# constants
+Ggrav  = constants.G.cgs.value        # Gravitational constant
+ms     = constants.M_sun.cgs.value    # Solar mass (g)
+ls     = constants.L_sun.cgs.value    # Solar luminosity (erg s^-1)
+rs     = constants.R_sun.cgs.value    # Solar radius (cm)
+au     = units.au.to('cm')            # 1 au (cm)
+pc     = units.pc.to('cm')            # 1 pc (cm)
+clight = constants.c.cgs.value        # light speed (cm s^-1)
+kb     = constants.k_B.cgs.value      # Boltzman coefficient
+sigsb  = constants.sigma_sb.cgs.value # Stefan-Boltzmann constant (erg s^-1 cm^-2 K^-4)
+mp     = constants.m_p.cgs.value      # Proton mass (g)
 
-au    = 1.49598e13      # Astronomical Unit       [cm]
-pc    = 3.08572e18      # Parsec                  [cm]
-ms    = 1.98892e33      # Solar mass              [g]
-ts    = 5.78e3          # Solar temperature       [K]
-ls    = 3.8525e33       # Solar luminosity        [erg/s]
-rs    = 6.96e10         # Solar radius            [cm]
-Ggrav = 6.67428e-8      # gravitational constant  [dyn cm^2 g^-2]
-mp    = 1.672621898e-24 # proton mass [g]
-sigsb = 5.670367e-5     # Stefan-Boltzmann constant [erg s^-1 cm^-2 K^-4]
-kb    = 1.38064852e-16  # Boltzman coefficient in cgs
-
-
+#au    = 1.49598e13      # Astronomical Unit       [cm]
+#pc    = 3.08572e18      # Parsec                  [cm]
+#ms    = 1.98892e33      # Solar mass              [g]
+#ls    = 3.8525e33       # Solar luminosity        [erg/s]
+#rs    = 6.96e10         # Solar radius            [cm]
+#Ggrav = 6.67428e-8      # gravitational constant  [dyn cm^2 g^-2]
+#mp    = 1.672621898e-24 # proton mass [g]
+#sigsb = 5.670367e-5     # Stefan-Boltzmann constant [erg s^-1 cm^-2 K^-4]
+#kb    = 1.38064852e-16  # Boltzman coefficient in cgs
 
 
 # ProToStellar MODEL
@@ -708,7 +720,7 @@ class PTSMODEL():
         if tstar:
             self.tstar = tstar
         else:
-            sigsb = 5.670367e-5     # Stefan-Boltzmann constant [erg s^-1 cm^-2 K^-4]
+            #sigsb = 5.670367e-5     # Stefan-Boltzmann constant [erg s^-1 cm^-2 K^-4]
             tstar = (lstar/(4*np.pi*rstar*rstar)/sigsb)**0.25 # Stefan-Boltzmann
             self.tstar = tstar
 
@@ -723,7 +735,7 @@ class PTSMODEL():
             rstar: Stellar radius (cm).
              rstar=4xR_sun for protostars (Stahler, Shu and Taam 1980)
         '''
-        sigsb = 5.670367e-5     # Stefan-Boltzmann constant [erg s^-1 cm^-2 K^-4]
+        #sigsb = 5.670367e-5     # Stefan-Boltzmann constant [erg s^-1 cm^-2 K^-4]
         tstar = (lstar/(4*np.pi*rstar*rstar)/sigsb)**0.25 # Stefan-Boltzmann
         self.tstar = tstar
 
@@ -731,6 +743,8 @@ class PTSMODEL():
     # Make input files for RADMC-3D
     def export_to_radmc3d(self, nphot, dustopac='nrmS03',line='c18o', iseed = -5415):
         nr, ntheta, nphi = self.gridshape
+        self.dustopac = dustopac
+        self.line     = line
         ############### Output the model into radmc3d files ############
         # Write the wavelength_micron.inp file
         #
@@ -770,7 +784,9 @@ class PTSMODEL():
             f.write('0\n')                         # AMR grid style  (0=regular grid, no AMR)
             f.write('100\n')                       # Coordinate system: spherical
             f.write('0\n')                         # gridinfo
-            f.write('1 1 1\n')                     # Include r,theta coordinates
+            # Include r,theta, phi coordinates or not
+            incl_rtp = [0 if n_i == 1 else 1 for n_i in [nr, ntheta, nphi]]
+            f.write('%i %i %i\n'%(incl_rtp[0], incl_rtp[1], incl_rtp[2]))
             f.write('%d %d %d\n'%(nr,ntheta,nphi)) # Size of grid
             np.savetxt(f,self.ri.T,fmt=['%21.14e'])     # R coordinates (cell walls)
             np.savetxt(f,self.thetai.T,fmt=['%21.14e']) # Theta coordinates (cell walls)
@@ -841,6 +857,120 @@ class PTSMODEL():
             f.write('iranfreqmode = 1\n')
             f.write('tgas_eq_tdust = 1')
         ####################### End output ########################
+
+    def run_mctherm(self):
+        '''
+        Calculate temperature distribution with RADMC3D
+        '''
+        # files
+        path_infiles = model_utils.__file__.split('ptsmodel')[0]+'infiles/'
+        for fin in ['dustkappa_%s.inp'%self.dustopac, 'molecule_%s.inp'%self.line]:
+            if os.path.exists(fin) == False:
+                shutil.copy(path_infiles + fin, '.')
+
+        print ('radmc3d mctherm')
+        os.system('radmc3d mctherm')
+
+
+    def solve_radtrans_line(self, npix, iline, sizeau,
+        width_spw, nchan, pa, inc, contsub=True):
+        '''
+        Solve radiative transfer for line with RADMC3D.
+
+        Parameters
+        ----------
+         npix: Pixel number of the output image. Output image will have npix x npix size.
+         iline: Upper excitation level of line for which radiative transfer is solved.
+         sizeau: Image size in diamiter in au.
+         width_spw: Total width of the spectral window.
+         nchan: Channel number of the spectral window.
+         pa: Position angle of the object on the plane of sky.
+         inc: Inclination angle of the object.
+
+        Return
+        ------
+         None
+        '''
+
+        # read moldata
+        _, weight, nlevels, EJ, gJ, J, ntrans, Jup, Acoeff, freq, delE =\
+        read_lamda_moldata('molecule_'+self.line+'.inp')
+        restfreq = freq[iline-1]*1e9 # rest frequency (Hz)
+
+        run_radmc = 'radmc3d image npix %i phi 0 iline %i \
+        sizeau %.f widthkms %.2f linenlam %i posang %.2f \
+        incl %.2f'%(npix, iline, sizeau, width_spw, nchan, pa, inc)
+        print ('Solve radiative transfer')
+        print (run_radmc)
+        os.system(run_radmc)
+
+        # output
+        fout_line = 'image_%s%i%i.out'%(self.line, iline, iline-1)
+        print ('image.out --> '+fout_line)
+        os.system('mv image.out '+fout_line)
+
+        # obsinfo
+        with open(fout_line.replace('.out','.obsinfo'),'w+') as f:
+            f.write('# Information of observation to make image.out\n')
+            f.write('# restfrequency inclination position_angle\n')
+            f.write('# Hz deg deg\n')
+            f.write('\n')
+            f.write('%d %d %d'%(restfreq,inc,pa))
+
+        # contsub
+        if contsub:
+            lam = clight*1e-2/restfreq*1e6 # micron
+            print ('Solve radiative transfer for continuum\
+                for continuum subtraction.')
+            run_radmc = 'radmc3d image npix %i phi 0 \
+            sizeau %.f posang %.2f incl %.2f lambda %.13e'\
+            %(npix, sizeau, pa, inc, lam)
+            print (run_radmc)
+            os.system(run_radmc)
+            # output
+            fout_cont = 'image_%s%i%i_cont.out'%(self.line, iline, iline-1)
+            print ('image.out --> '+fout_cont)
+            os.system('cp image.out '+fout_cont)
+
+            # contsub
+            im_line_contsub = image_contsub(self.line, iline)
+
+
+    def solve_radtrans_cont(npix, sizeau, pa, inc, lam):
+        '''
+        Solve radiative transfer for continuum with RADMC3D.
+
+        Parameters
+        ----------
+         npix: Pixel number of the output image. Output image will have npix x npix size.
+         sizeau: Image size in diamiter in au.
+         pa: Position angle of the object on the plane of sky.
+         inc: Inclination angle of the object.
+         lam (float): lambda at which radiative transfer is solved (micron)
+
+        Return
+        ------
+         None
+        '''
+        print ('Solve radiative transfer for continuum\
+            for continuum subtraction.')
+        run_radmc = 'radmc3d image npix %i phi 0 \
+        sizeau %.f posang %.2f incl %.2f lambda %.13e'\
+        %(npix, sizeau, pa, inc, lam)
+        print (run_radmc)
+        os.system(run_radmc)
+        # output
+        fout_cont = 'image_cont_%i.out'%lam
+        print ('image.out --> '+fout_cont)
+        os.system('cp image.out '+fout_cont)
+
+        # obsinfo
+        with open(fout_cont.replace('.out','.obsinfo'),'w+') as f:
+            f.write('# Information of observation to make image.out\n')
+            f.write('# restfrequency inclination position_angle\n')
+            f.write('# Hz deg deg\n')
+            f.write('\n')
+            f.write('%d %d %d'%(clight/(lam*1e-4),inc,pa))
 
 
     # plot for check
