@@ -922,7 +922,7 @@ class PTSMODEL():
             lam = clight*1e-2/restfreq*1e6 # micron
             print ('Solve radiative transfer for continuum\
                 for continuum subtraction.')
-            run_radmc = 'radmc3d image npix %i phi 0 \
+            run_radmc = 'radmc3d image noline npix %i phi 0 \
             sizeau %.f posang %.2f incl %.2f lambda %.13e'\
             %(npix, sizeau, pa, inc, lam)
             print (run_radmc)

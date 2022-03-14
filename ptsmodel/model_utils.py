@@ -82,7 +82,6 @@ def image_contsub(line, iline, filehead='image_'):
         header = f_i.readlines()[0:5+nchan]
         header = ''.join(header)
         f.write(header)
-        f.write('\n')
         d_out = im_line_contsub.ravel(order='F') # Create a 1-D view, fortran-style indexing
         np.savetxt(f,d_out.T,fmt=['%13.6e'])
 
