@@ -56,8 +56,8 @@ def image_contsub(line, iline, filehead='image_'):
     Continuum subtraction.
     '''
     # image files
-    f_line = filehead + '%s%i%i.out'%(self.line, iline, iline-1)
-    f_cont = filehead + '%s%i%i_cont.out'%(self.line, iline, iline-1)
+    f_line = filehead + '%s%i%i.out'%(line, iline, iline-1)
+    f_cont = filehead + '%s%i%i_cont.out'%(line, iline, iline-1)
 
     # read file
     # line
@@ -65,13 +65,13 @@ def image_contsub(line, iline, filehead='image_'):
     nchan  = np.genfromtxt(f_line, max_rows=1, skip_header=2, dtype=int)
     d_line = pd.read_csv(f_line, comment='#', encoding='utf-8',
         header=None, dtype=float, skiprows=5+nchan)
-    im_line = d_line.values.values
+    im_line = d_line.values
     im_line = im_line.reshape((1, nchan, ny, nx))#,order='F')
     # cont
     d_cont = pd.read_csv(f_cont, comment='#', encoding='utf-8',
         header=None, dtype=float, skiprows=5+1)
-    im_cont   = d_cont.values.values
-    im_cont   = im_cont.reshape((1, 1, npix, npix))#,order='F')
+    im_cont   = d_cont.values
+    im_cont   = im_cont.reshape((1, 1, ny, nx))#,order='F')
 
     # contsub
     im_line_contsub = im_line - im_cont
