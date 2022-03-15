@@ -193,6 +193,8 @@ def export_radmc_tofits(outname, f='image.out', obsinfo=None, restfreq=None, hdr
         # strip contsub
         if '_contsub' in f:
             obsinfo = f.replace('_contsub', '').replace('.out', '.obsinfo')
+        elif '_cont' in f:
+            obsinfo = f.replace('_cont', '').replace('.out', '.obsinfo')
         else:
             obsinfo = f.replace('.out', '.obsinfo')
 
