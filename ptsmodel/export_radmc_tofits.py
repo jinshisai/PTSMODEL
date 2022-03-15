@@ -397,6 +397,7 @@ def export_radmc_tofits(outname, f='image.out', obsinfo=None, restfreq=None, hdr
     if units == 'Jy/pixel':
         # in cgs --> Jy/pixel
         outimage = IcgsTOjpp(outimage,pixsize[0]/au,pixsize[1]/au,dist)
+        hdr['BUNIT'] = ('Jy/pixel', 'Brightness (pixel) unit')
         if beam_convolution:
             print ('Currently beam convolution is not supported when unit \
                 of Jy/pixel is used.')
