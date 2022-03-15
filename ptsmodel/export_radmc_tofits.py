@@ -25,27 +25,54 @@ clight = 2.99792458e10   # light speed [cm s^-1]
 ### functions
 # convert Icgs --> Ibeam
 def IcgsTObeam(Icgs,bmaj,bmin):
-        '''
-        Convert Intensity in cgs to in Jy/beam
+    '''
+    Convert Intensity in cgs to in Jy/beam
 
-        Icgs: intensity in cgs unit [erg s-1 cm-2 Hz-1 str-1]
-        bmaj, bmin: FWHMs of beam major and minor axes [arcsec]
-        Ibeam: intensity in Jy/beam
-        '''
+    Icgs: intensity in cgs unit [erg s-1 cm-2 Hz-1 str-1]
+    bmaj, bmin: FWHMs of beam major and minor axes [arcsec]
+    Ibeam: intensity in Jy/beam
+    '''
 
-        # cgs --> Jy/str
-        Imks = Icgs*1.e-7*1.e4   # cgs --> MKS
-        Istr = Imks*1.0e26       # MKS --> Jy/str, 1 Jy = 10^-26 Wm-2Hz-1
+    # cgs --> Jy/str
+    Imks = Icgs*1.e-7*1.e4   # cgs --> MKS
+    Istr = Imks*1.0e26       # MKS --> Jy/str, 1 Jy = 10^-26 Wm-2Hz-1
 
-        # Jy/sr -> Jy/beam(arcsec)
-        # beam          = thmaj*thmin (arcsec^2) = (a_to_rad)^2*thmaj*thmin (rad^2)
-        # Omg_beam (sr) = (pi/4ln(2))*beam (rad^2) = (pi/4ln2)*(a_to_rad)^2*thmaj*thmin
-        # I [Jy/beam]   = I [Jy/sr] * Omg_beam
-        C2              = np.pi/(4.*np.log(2.))
-        radTOarcsec     = (60.0*60.0*180.0)/np.pi
-        beam_th         = radTOarcsec*radTOarcsec/(C2*bmaj*bmin) # beam(sr) -> beam(arcsec), 1/beam_sr
-        Ibeam           = Istr/beam_th
-        return Ibeam
+    # Jy/sr -> Jy/beam(arcsec)
+    # beam          = thmaj*thmin (arcsec^2) = (a_to_rad)^2*thmaj*thmin (rad^2)
+    # Omg_beam (sr) = (pi/4ln(2))*beam (rad^2) = (pi/4ln2)*(a_to_rad)^2*thmaj*thmin
+    # I [Jy/beam]   = I [Jy/sr] * Omg_beam
+    C2              = np.pi/(4.*np.log(2.))
+    radTOarcsec     = (60.0*60.0*180.0)/np.pi
+    beam_th         = radTOarcsec*radTOarcsec/(C2*bmaj*bmin) # beam(sr) -> beam(arcsec), 1/beam_sr
+    Ibeam           = Istr/beam_th
+    return Ibeam
+
+# convert Icgs --> Iv Jy/pixel
+def IcgsTOjpp(Icgs, px, py ,dist):
+    '''
+    Convert Intensity in cgs to in Jy/beam
+
+    Icgs: intensity in cgs unit [erg s-1 cm-2 Hz-1 str-1]
+    psize: pixel size (au)
+    dist: distance to the object (pc)
+    '''
+
+    # cgs --> Jy/str
+    Imks = Icgs*1.e-7*1.e4   # cgs --> MKS
+    Istr = Imks*1.0e26       # MKS --> Jy/str, 1 Jy = 10^-26 Wm-2Hz-1
+
+    # Jy/sr -> Jy/pixel
+    px = np.radians(px/dist/3600.) # au --> radian
+    py = np.radians(py/dist/3600.) # au --> radian
+    # one_pixel_area = pixel*pixel (rad^2)
+    # Exactly, one_pixel_area = 4.*np.arcsin(np.sin(psize*0.5)*np.sin(psize*0.5))
+    #  but the result is almost the same pixel cuz pixel area is much small.
+    # (When psize = 20 au and dist = 140 pc, S_apprx/S_acc = 1.00000000000004)
+    # I [Jy/pixel]   = I [Jy/sr] * one_pixel_area
+    one_pixel_area  = px*py
+    Ijpp            = Istr*one_pixel_area # Iv (Jy per pixel)
+    return Ijpp
+
 
 
 # equivalent brightness temperature
@@ -128,10 +155,36 @@ def rotate2d(x, y, angle, deg=True, coords=False):
 def export_radmc_tofits(outname, f='image.out', obsinfo=None, restfreq=None, hdr=None, dist=140.,
     coordinate_center = '0h0m0.0s 0d0m0.0s', projection='SIN', frame = 'fk5', vsys=0,
     obname=None, beam_convolution=True, beam=[], Tb=False, add_noise=False, rms=None,
-    noise_scale_factor=1.5, overwrite=False):
+    noise_scale_factor=1.5, overwrite=False, units='Jy/beam'):
     '''
     Export a radmc output file into a fits file.
 
+    Parameters
+    ----------
+     outname (str): Output name. outname.fits will be the one you get.
+     f (str): radmc image file.
+     obsinfo (str): Name of obsinfo file. If there is any input,
+                    rest frequency, inclination, pa will be read from it.
+     restfreq (float): Rest frequency in Hz. If obsinfo file is provided,
+                       this parameter is not used.
+     hdr (header): Header information can be directly given. Default None.
+     dist (float): Distance to the object in pc.
+     coordinate_center (str): Coordinate of the target source. Must be given
+                              in a format of 'hms dms'.
+     projection (str): Projection to the plane of sky.
+     frame (str): Coordinate frame.
+     vsys (float): Systemic velocity in km/s.
+     obname (str): Object name written in header if given.
+     beam_convolution (bool): Beam will be convolved if True.
+     beam (list): Beam properties for beam convolution. Must be given
+                  as [bmaj, bmin, bpa].
+     Tb (bool): Output unit will be in K if True.
+     add_noise (bool): Add noise if True.
+     rms (float): RMS noise level.
+     noise_scale_factor (float): Unit conversion factor for noise.
+     units (str): Output unit of the intensity. Current option is Jy/pixel,
+                  which is for CASA simulation.
+     overwrite (bool): Overwrite existing fits file if True.
     '''
     print ('Export a radmc image to a fits file.')
 
@@ -338,6 +391,17 @@ def export_radmc_tofits(outname, f='image.out', obsinfo=None, restfreq=None, hdr
 
         print ('adding noise...')
         outimage = outimage + noise
+
+
+    # unit
+    if units == 'Jy/pixel':
+        # in cgs --> Jy/pixel
+        outimage = IcgsTOjpp(outimage,pixsize[0]/au,pixsize[1]/au,dist)
+        if beam_convolution:
+            print ('Currently beam convolution is not supported when unit \
+                of Jy/pixel is used.')
+            beam_convolution = False
+        Tb = False
 
 
     # beam convolution
