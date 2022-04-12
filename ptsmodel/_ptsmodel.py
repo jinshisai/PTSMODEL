@@ -885,7 +885,7 @@ class PTSMODEL():
                 shutil.copy(path_infiles + fin, '.')
 
         print ('radmc3d mctherm setthreads %i'%nthreads)
-        os.system('radmc3d mctherm setthreads %i'nthreads)
+        os.system('radmc3d mctherm setthreads %i'%nthreads)
 
 
     def solve_radtrans_line(self, npix, iline, sizeau,
