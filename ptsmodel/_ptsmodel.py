@@ -186,6 +186,21 @@ class PTSMODEL():
         self.vphi   = vphi
 
 
+        # temperature if exists
+        f = 'dust_temperature.dat'
+        if os.path.exists(f):
+            data = pd.read_csv(f, delimiter='\n', header=None).values
+            iformat = data[0]
+            imsize  = data[1]
+            ndspc   = data[2]
+            temp    = data[3:]
+
+            retemp = temp.reshape((nphi,ntheta,nr)).T
+            self.temp = retemp
+        else:
+            self.temp = None
+
+
     def makegrid(self, nr, ntheta, nphi ,rmin, rmax,
      thetamin=0., thetamax=np.pi*0.5, phimin=0., phimax=2.*np.pi, logr=True):
         '''
@@ -858,7 +873,8 @@ class PTSMODEL():
             f.write('tgas_eq_tdust = 1')
         ####################### End output ########################
 
-    def run_mctherm(self):
+
+    def run_mctherm(self, nthreads=1):
         '''
         Calculate temperature distribution with RADMC3D
         '''
@@ -868,8 +884,8 @@ class PTSMODEL():
             if os.path.exists(fin) == False:
                 shutil.copy(path_infiles + fin, '.')
 
-        print ('radmc3d mctherm')
-        os.system('radmc3d mctherm')
+        print ('radmc3d mctherm setthreads %i'%nthreads)
+        os.system('radmc3d mctherm setthreads %i'nthreads)
 
 
     def solve_radtrans_line(self, npix, iline, sizeau,
