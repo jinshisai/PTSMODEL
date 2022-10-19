@@ -87,14 +87,14 @@ pstar = np.array([0.,0.,0.])                      # position
 # rin, rout: disk inner and outer radius [cm]
 
 mdisk     = 1.3e-2*ms                             # from L1489 ALMA C2 B6 obs, opc Ossenkoph & Henning 94
-plsig     = -1.7                                  # power-law index of the surface density
+plsig     = -1.                                   # power-law index of the surface density
 rd_in     = 0.1*au                                # dust & gas disk inner radius [cm]
 rd_out    = 80.*au                                # dust & gas disk outer radius [cm]
 Tdisk_1au = 400.                                  # disk temperature at 1 au [K]
 cs_1au    = np.sqrt(kb*Tdisk_1au/(mu*mp))         # isothermal sound speed at 1 au [cm/s]
 Omg_1au   = np.sqrt(Ggrav*mstar/au**3)            # Keplerian angular velocity at 1 au[/s]
 hr0       = cs_1au/Omg_1au/au                     # H/r at 1au, assuming hydrostatic equillibrium
-plh       = 0.2                                   # Powerlaw of flaring h/r, assuming T prop r^-0.5 & Keplerian rotation
+plh       = 0.25                                  # Powerlaw of flaring h/r, assuming T prop r^-0.5 & Keplerian rotation
 
 
 # Envelope parameters
@@ -103,7 +103,6 @@ plh       = 0.2                                   # Powerlaw of flaring h/r, ass
 # re_in, re_out: the inner and outer radii of the envelope [cm]
 
 #rho0_e = 1.6e-18  # ~1/10 of ~1.4e-17
-vfac   = 0.5      # reduction factor for v_infall from free-fall velocity
 rcent  = rd_out   # centrifugal radius
 re_in  = rd_in    # envelope inner radius [cm]
 re_out = 2000.*au # envelope outer radius [cm]
@@ -117,7 +116,7 @@ pa       = 90.                     # position angle [deg]
 vmin     = -5                      # minimum velocity to be imaged
 vmax     = 5                       # maximum velocity to be imaged
 vrange   = np.array([vmin,vmax])   # velocity range
-nchan    = 70                      # channel number
+nchan    = 32                      # channel number
 width_spw = 5                      # +/- 5 km/s
 iline    = 2                       # J=2--1
 npix     = 512                     # pixel size of image
@@ -214,55 +213,17 @@ model_i.export_to_radmc3d(nphot, dustopac, line, iseed)
 
 # RADMC-3D
 # calculate temperature profile
-print ('Calculate temperature profile')
-print ('radmc3d mctherm')
-os.system('radmc3d mctherm')
+model_i.run_mctherm(nthreads=8)
 model_i.plot_temperature(t_range=[0.,120.])
-# !!! finish !!!
-
-
-### solve radiative transfer
-_, weight, nlevels, EJ, gJ, J, ntrans, Jup, Acoeff, freq, delE =\
-read_lamda_moldata('molecule_'+model_i.line+'.inp')
-restfreq = freq[iline-1]*1e9 # rest frequency (Hz)
-lam = clight*1e-2/restfreq*1e6 # micron
 
 # solve radiative transfer
-# line
-run_radmc = 'radmc3d image npix %i phi 0 iline %i\
- sizeau %.f widthkms %.2f linenlam %i posang %.2f\
- incl %.2f'%(npix, iline, sizeau, width_spw, nchan, pa, inc)
-print ('Solve radiative transfer')
-print (run_radmc)
-os.system(run_radmc)
-
-with open('obsinfo.txt','w+') as f:
-	f.write('# Information of observation to make image.out\n')          # comment 1
-	f.write('# inclination\trestfrequency\timagesize\tposition angle\n') # comment 2
-	f.write('# [deg]\t[Hz]\t[au]\t[deg]\n')                              # comment 3
-	f.write('\n')
-	f.write('%d %d %d %d'%(inc,restfreq,sizeau,pa))
+model_i.solve_radtrans_line(npix, iline, sizeau, width_spw, nchan, pa, inc, contsub=True)
 
 # export to fits
-outname = modelname_i + outtxt + '%i%i'%(iline, iline-1)
-ptsmodel.export_radmc_tofits.export_radmc_tofits(outname, restfreq=restfreq, dist=dist, obname=obname, vsys=vsys, coordinate_center=coordinate_center,
-	beam_convolution=beam_convolution, beam=beam, Tb=Tb, add_noise=add_noise, rms=rms,
-	frame=frame, projection=projection)
-os.system('cp image.out image_line_%s%i%i.out'%(line,iline, iline-1))
-
-
-# continuum
-run_radmc = 'radmc3d image npix %i phi 0\
- sizeau %.f posang %.2f incl %.2f lambda %.13e'%(npix, sizeau, pa, inc, lam)
-print ('Solve radiative transfer for continuum')
-print (run_radmc)
-os.system(run_radmc)
-
-
-# export to fits
-outname = modelname_i + outtxt + '%i%i'%(iline, iline-1) + '_cont'
-ptsmodel.export_radmc_tofits.export_radmc_tofits(outname, dist=dist, obname=obname, vsys=vsys, coordinate_center=coordinate_center,
-	beam_convolution=beam_convolution, beam=beam, Tb=Tb, add_noise=add_noise, rms=rms,
-	frame=frame, projection=projection, restfreq=restfreq)
-os.system('cp image.out image_cont_%s%i%i.out'%(line,iline, iline-1))
+for ext in ['', '_cont', '_contsub']:
+	outname = modelname_i + outtxt + '%i%i'%(iline, iline-1) + ext
+	imfile  = 'image_%s%i%i%s.out'%(line,iline, iline-1, ext)
+	ptsmodel.export_radmc_tofits.export_radmc_tofits(outname, f=imfile, restfreq=restfreq, dist=dist, obname=obname, vsys=vsys, coordinate_center=coordinate_center,
+		beam_convolution=beam_convolution, beam=beam, Tb=Tb, add_noise=add_noise, rms=rms,
+		frame=frame, projection=projection)
 os.chdir('..')

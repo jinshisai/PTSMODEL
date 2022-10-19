@@ -916,7 +916,7 @@ class PTSMODEL():
         run_radmc = 'radmc3d image npix %i phi 0 iline %i \
         sizeau %.f widthkms %.2f linenlam %i posang %.2f \
         incl %.2f'%(npix, iline, sizeau, width_spw, nchan, pa, inc)
-        print ('Solve radiative transfer')
+        print ('Solve radiative transfer.')
         print (run_radmc)
         os.system(run_radmc)
 
@@ -936,8 +936,7 @@ class PTSMODEL():
         # contsub
         if contsub:
             lam = clight*1e-2/restfreq*1e6 # micron
-            print ('Solve radiative transfer for continuum\
-                for continuum subtraction.')
+            print ('Solve radiative transfer for continuum.')
             run_radmc = 'radmc3d image noline npix %i phi 0 \
             sizeau %.f posang %.2f incl %.2f lambda %.13e'\
             %(npix, sizeau, pa, inc, lam)
@@ -949,7 +948,7 @@ class PTSMODEL():
             os.system('cp image.out '+fout_cont)
 
             # contsub
-            im_line_contsub = image_contsub(self.line, iline)
+            _ = image_contsub(self.line, iline)
 
 
     def solve_radtrans_cont(npix, sizeau, pa, inc, lam):
