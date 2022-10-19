@@ -221,7 +221,7 @@ model_i.solve_radtrans_line(npix, iline, sizeau, width_spw, nchan, pa, inc, cont
 
 # export to fits
 _, weight, nlevels, EJ, gJ, J, ntrans, Jup, Acoeff, freq, delE = \
-read_lamda_moldata('molecule_'+self.line+'.inp')
+read_lamda_moldata('molecule_'+model_i.line+'.inp')
 restfreq = freq[iline-1]*1e9 # rest frequency (Hz)
 for ext in ['', '_cont', '_contsub']:
 	outname = modelname_i + outtxt + '%i%i'%(iline, iline-1) + ext
