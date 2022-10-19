@@ -220,6 +220,9 @@ model_i.plot_temperature(t_range=[0.,120.])
 model_i.solve_radtrans_line(npix, iline, sizeau, width_spw, nchan, pa, inc, contsub=True)
 
 # export to fits
+_, weight, nlevels, EJ, gJ, J, ntrans, Jup, Acoeff, freq, delE = \
+read_lamda_moldata('molecule_'+self.line+'.inp')
+restfreq = freq[iline-1]*1e9 # rest frequency (Hz)
 for ext in ['', '_cont', '_contsub']:
 	outname = modelname_i + outtxt + '%i%i'%(iline, iline-1) + ext
 	imfile  = 'image_%s%i%i%s.out'%(line,iline, iline-1, ext)
