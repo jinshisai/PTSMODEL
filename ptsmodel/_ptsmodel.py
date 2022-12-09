@@ -756,7 +756,7 @@ class PTSMODEL():
 
 
     # Make input files for RADMC-3D
-    def export_to_radmc3d(self, nphot, dustopac='nrmS03',line='c18o', iseed = -5415):
+    def export_to_radmc3d(self, nphot, dustopac='nrmS03',line=None, iseed = -5415):
         nr, ntheta, nphi = self.gridshape
         self.dustopac = dustopac
         self.line     = line
@@ -858,10 +858,11 @@ class PTSMODEL():
                 np.savetxt(f,data.T,fmt=['%13.6e'])
         # Write the lines.inp control file
         #
-        with open('lines.inp','w') as f:
-            f.write('1\n')
-            f.write('1\n')
-            f.write('%s    leiden    0    0\n'%line)
+        if self.line:
+            with open('lines.inp','w') as f:
+                f.write('1\n')
+                f.write('1\n')
+                f.write('%s    leiden    0    0\n'%line)
         #
         # Write the radmc3d.inp control file
         #

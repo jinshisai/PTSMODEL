@@ -328,12 +328,12 @@ def export_radmc_tofits(outname, f='image.out', obsinfo=None, restfreq=None, hdr
     hdr['CTYPE1']   = ra
     hdr['CRVAL1']   = xref + c_center.ra.deg
     hdr['CDELT1']   = delx
-    hdr['CRPIX1']   = nx//2
+    hdr['CRPIX1']   = float(nx//2)
     hdr['CUNIT1']   = 'deg'
     hdr['CTYPE2']   = dec
     hdr['CRVAL2']   = yref + c_center.dec.deg
     hdr['CDELT2']   = dely
-    hdr['CRPIX2']   = ny//2
+    hdr['CRPIX2']   = float(ny//2)
     hdr['CUNIT2']   = 'deg'
     hdr['CTYPE3']   = 'FREQ'
     hdr['CRVAL3']   = freq[0]+freq_vsys if nlam >= 2 else freq

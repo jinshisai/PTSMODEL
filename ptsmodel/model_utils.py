@@ -1,9 +1,44 @@
+import os
 import numpy as np
 import pandas as pd
 
 
 ### functions
-# read file
+# temperature if exists
+def read_temperature(f='dust_temperature.dat'):
+    '''
+    Read a RADMC-3D temperature file.
+    '''
+    # grid
+    if os.path.exists('amr_grid.inp') == False:
+        print ('ERROR\tread_temperature: amr_grid.inp cannot be found.')
+        return
+    else:
+        nrtp = np.genfromtxt('amr_grid.inp', max_rows=1, skip_header=5, 
+            delimiter=' ',dtype=int)
+        nr, ntheta, nphi = nrtp
+
+    # temperature
+    if os.path.exists(f):
+        data = pd.read_csv(f, delimiter='\n', header=None).values
+        iformat = data[0]
+        imsize  = data[1]
+        ndspc   = data[2]
+        temp    = data[3:]
+
+        retemp = temp.reshape((nphi,ntheta,nr)).T
+        return retemp
+    else:
+        print ('Found no temperature file.')
+        return
+
+def write_temperature(temp, f='dust_temperature.dat', overwrite=False):
+    '''
+    Write out xxx_temperature.dat file for RADMC-3D by hand.
+    '''
+    #retemp
+
+# read LAMDA file
 def read_lamda_moldata(infile):
     '''
     Read a molecular data file from LAMDA (Leiden Atomic and Molecular Database).
