@@ -827,13 +827,6 @@ class PTSMODEL():
             f.write('%s          Extension of name of dustkappa_***.inp file\n'%dustopac)
             f.write('----------------------------------------------------------------------------\n')
         #
-        # Write the molecule number density file.
-        #
-        with open('numberdens_%s.inp'%line,'w+') as f:
-            f.write('1\n')                       # Format number
-            f.write('%d\n'%(nr*ntheta*nphi))     # Nr of cells
-            data = self.nrho_g.ravel(order='F')  # Create a 1-D view, fortran-style indexing
-            np.savetxt(f,data.T,fmt=['%13.6e'])
         # Write the gas velocity field
         #
         with open('gas_velocity.inp','w+') as f:
@@ -863,6 +856,13 @@ class PTSMODEL():
                 f.write('1\n')
                 f.write('1\n')
                 f.write('%s    leiden    0    0\n'%line)
+            # Write the molecule number density file.
+            #
+            with open('numberdens_%s.inp'%line,'w+') as f:
+                f.write('1\n')                       # Format number
+                f.write('%d\n'%(nr*ntheta*nphi))     # Nr of cells
+                data = self.nrho_g.ravel(order='F')  # Create a 1-D view, fortran-style indexing
+                np.savetxt(f,data.T,fmt=['%13.6e'])
         #
         # Write the radmc3d.inp control file
         #
