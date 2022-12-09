@@ -958,7 +958,7 @@ class PTSMODEL():
             _ = image_contsub(self.line, iline)
 
 
-    def solve_radtrans_cont(npix, sizeau, pa, inc, lam):
+    def solve_radtrans_cont(self, npix, sizeau, pa, inc, lam):
         '''
         Solve radiative transfer for continuum with RADMC3D.
 
