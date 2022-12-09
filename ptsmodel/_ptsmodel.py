@@ -882,7 +882,7 @@ class PTSMODEL():
         # files
         path_infiles = model_utils.__file__.split('ptsmodel')[0]+'infiles/'
         fins = ['dustkappa_%s.inp'%self.dustopac, 'molecule_%s.inp'%self.line] if self.line is not None\
-        else = [ 'dustkappa_%s.inp'%self.dustopac ]
+        else [ 'dustkappa_%s.inp'%self.dustopac ]
         for fin in ['dustkappa_%s.inp'%self.dustopac, 'molecule_%s.inp'%self.line]:
             if os.path.exists(fin) == False:
                 if os.path.exists(path_infiles + fin):
