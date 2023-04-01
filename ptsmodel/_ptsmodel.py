@@ -42,7 +42,7 @@ mp     = constants.m_p.cgs.value      # Proton mass (g)
 #kb    = 1.38064852e-16  # Boltzman coefficient in cgs
 
 
-# ProToStellar MODEL
+# ProtoStellar MODEL
 class PTSMODEL():
     '''
     Build a model of a protostar, a disk, and an envelope system.
@@ -276,8 +276,7 @@ class PTSMODEL():
             plh: Power-law index of the radial profile of h/r, which determines disk-flaring.
              It should be 0.25 if you assume T prop r^-0.5 & Keplerian rotation.
             sig0 (bool): If False, mdisk will be treated as Mdisk.
-             If True, mdisk will be treated as sigma_0, column density at 1 au, and
-              disk density profile is thus calculated from Sigma_0 rather than Mdisk.
+             If True, mdisk will be treated as sigma_0, column density at 1 au.
         '''
         # put a disk
         self.disk = 1
@@ -297,7 +296,71 @@ class PTSMODEL():
             self.sig0_disk(mdisk, rin, rout, plsig)
             sig0 = self.sig0
 
-        sigma = sig0 * (rxy/au)**plsig # surface density as a function of r
+        # surface density as a function of r
+        sigma = sig0 * (rxy/au)**plsig
+        self.sigma = sigma
+
+        # scale height
+        hhr       = hr0 * (rxy/au)**plh # h/r at r, where h is the scale hight
+        hh        = hhr * rxy           # the scale hight at r
+        self.hh   = hh
+
+
+        # make rho
+        rho = np.zeros(self.gridshape)
+
+        # rin < rdisk < rout
+        sigma[np.where(rxy < rin)]  = 0.
+        sigma[np.where(rxy > rout)] = 0.
+
+        exp = np.exp(-zz*zz/(2.*hh*hh))
+        rho = sigma*exp/(np.sqrt(2.*np.pi)*hh) # [g/cm^3]
+
+        self.rho_disk = rho
+
+
+    def rho_ssdisk(self, mdisk, rc, gamma, hr0, plh, sig0=False):
+        '''
+        Dencity distribution for the Shakura-Sunyaev disk.
+
+
+        Parameters
+        ----------
+        mdisk (float): Disk mass or Sigma_0
+        rc (float): Characteristic radius
+        gamma (float): Power-law index. Must be <2 so that disk mass converges.
+        hr0: H/r at 1au, where H is the scale height.
+        plh: Power-law index of the radial profile of h/r, which determines disk-flaring.
+         It should be 0.25 if you assume T prop r^-0.5 & Keplerian rotation.
+        sig0 (bool): If False, mdisk will be treated as Mdisk.
+         If True, mdisk will be treated as sigma_0, column density at 1 au.
+        '''
+        # put a disk
+        if gamma >= 2.:
+            # check gamma
+            self.disk = 0
+            print('ERROR\trho_ssdisk: gamma must be <2.')
+            return 0
+        else:
+            self.disk = 1
+
+        # grid
+        rxy = self.rxy
+        zz  = self.zz
+
+        self.rdisk_c  = rc
+
+        # surface density profile
+        # sig0, column density at 1 au
+        if sig0:
+            self.sig0 = mdisk
+        else:
+            sig0 = mdisk/(2. * np.pi * (2. - gamma))
+            self.sig0 = sig0
+
+        # surface density as a function of r
+        sigma = sig0 * (rxy/rc)**(-gamma) * np.exp(- (rxy/rc)**(2. - gamma) )
+        self.sigma
 
         # scale height
         hhr       = hr0 * (rxy/au)**plh # h/r at r, where h is the scale hight
@@ -568,8 +631,9 @@ class PTSMODEL():
             rho = self.rho_env                          # Put an envelope
             rho[where_disk] = self.rho_disk[where_disk] # Put a disk within an envelope
         elif (self.disk == 1) & (self.envelope == 0):
-            # disk only
-            rho = self.rho_disk
+            # Disk only
+            # Adopte the surface density (sigma) when assuming geometry thin disk
+            rho = self.sigma if ntheta == 1 else self.rho_disk
         elif (self.disk == 0) & (self.envelope == 1):
             # envelope only
             rho = self.rho_env
@@ -599,7 +663,8 @@ class PTSMODEL():
     # Velocity distributions
     def vfield_model(self):
         rr, tt, phph = self.grid
-        rxy          = self.rxy
+        rxy = self.rxy
+        zz  = self.zz
 
         # initialize
         vr     = np.zeros(self.gridshape)
@@ -621,13 +686,13 @@ class PTSMODEL():
             vphi   = vphi_env
 
             # v_disk
-            vr_disk, vtheta_disk, vphi_disk = v_steadydisk(rxy, self.mstar)
+            vr_disk, vtheta_disk, vphi_disk = v_steadydisk(rxy, zz, self.mstar)
             where_disk = self.where_disk
             vr[where_disk]     = vr_disk[where_disk]
             vtheta[where_disk] = vtheta_disk[where_disk]
             vphi[where_disk]   = vphi_disk[where_disk]
         elif (self.disk == 1) & (self.envelope == 0):
-            vr_disk, vtheta_disk, vphi_disk = v_steadydisk(rxy, self.mstar)
+            vr_disk, vtheta_disk, vphi_disk = v_steadydisk(rxy, zz, self.mstar)
             vr     = vr_disk
             vtheta = vtheta_disk
             vphi   = vphi_disk
@@ -1486,11 +1551,19 @@ def vrot_plaw(radius, v0, r0, p):
 
 
 # Velocity field of a disk
-def v_steadydisk(rxy, mstar):
+def v_steadydisk_2d(rxy, mstar):
     # v-field of the disk
     vr     = np.zeros(rxy.shape)
     vtheta = np.zeros(rxy.shape)
     vphi   = Vkep(rxy, mstar)   # Keplerian rotation
+
+    return vr, vtheta, vphi
+
+def v_steadydisk(rxy, zz, mstar):
+    # v-field of the steady disk
+    vr     = np.zeros(rxy.shape)
+    vtheta = np.zeros(rxy.shape)
+    vphi   = Vkep(rxy, mstar) * (1. + (zz/rxy)**2.)**(-3./4.)
 
     return vr, vtheta, vphi
 
