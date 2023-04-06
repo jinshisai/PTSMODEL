@@ -633,7 +633,7 @@ class PTSMODEL():
         elif (self.disk == 1) & (self.envelope == 0):
             # Disk only
             # Adopte the surface density (sigma) when assuming geometry thin disk
-            rho = self.sigma if ntheta == 1 else self.rho_disk
+            rho = self.sigma if self.ntheta == 1 else self.rho_disk
         elif (self.disk == 0) & (self.envelope == 1):
             # envelope only
             rho = self.rho_env
