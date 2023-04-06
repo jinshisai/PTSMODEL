@@ -360,7 +360,7 @@ class PTSMODEL():
 
         # surface density as a function of r
         sigma = sig0 * (rxy/rc)**(-gamma) * np.exp(- (rxy/rc)**(2. - gamma) )
-        self.sigma
+        self.sigma = sigma
 
         # scale height
         hhr       = hr0 * (rxy/au)**plh # h/r at r, where h is the scale hight
