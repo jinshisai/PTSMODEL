@@ -372,8 +372,8 @@ class PTSMODEL():
         rho = np.zeros(self.gridshape)
 
         # rin < rdisk < rout
-        sigma[np.where(rxy < rin)]  = 0.
-        sigma[np.where(rxy > rout)] = 0.
+        #sigma[np.where(rxy < rin)]  = 0.
+        #sigma[np.where(rxy > rout)] = 0.
 
         exp = np.exp(-zz*zz/(2.*hh*hh))
         rho = sigma*exp/(np.sqrt(2.*np.pi)*hh) # [g/cm^3]
