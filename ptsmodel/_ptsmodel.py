@@ -821,7 +821,8 @@ class PTSMODEL():
 
 
     # Make input files for RADMC-3D
-    def export_to_radmc3d(self, nphot, dustopac='nrmS03',line=None, iseed = -5415):
+    def export_to_radmc3d(self, nphot, dustopac='nrmS03',
+        line=None, iseed = -5415, scattering_mode=0):
         nr, ntheta, nphi = self.gridshape
         self.dustopac = dustopac
         self.line     = line
@@ -934,7 +935,7 @@ class PTSMODEL():
         with open('radmc3d.inp','w+') as f:
             f.write('nphot = %d\n'%nphot)
             f.write('iseed = %d\n'%iseed)
-            f.write('scattering_mode_max = 0\n')
+            f.write('scattering_mode_max = %i\n'%(scattering_mode))
             f.write('iranfreqmode = 1\n')
             f.write('tgas_eq_tdust = 1')
         ####################### End output ########################
