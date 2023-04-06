@@ -355,8 +355,7 @@ class PTSMODEL():
         if sig0:
             self.sig0 = mdisk
         else:
-            sig0 = mdisk/(2. * np.pi * (2. - gamma))
-            self.sig0 = sig0
+            self.sig0 = mdisk/(2. * np.pi * (2. - gamma))
 
         # surface density as a function of r
         sigma = self.sig0 * (rxy/rc)**(-gamma) * np.exp(- (rxy/rc)**(2. - gamma) )
@@ -962,7 +961,7 @@ class PTSMODEL():
 
 
     def solve_radtrans_line(self, npix, iline, sizeau,
-        width_spw, nchan, pa, inc, contsub=True):
+        width_spw, nchan, pa, inc, vkms=0., contsub=True):
         '''
         Solve radiative transfer for line with RADMC3D.
 
@@ -987,8 +986,8 @@ class PTSMODEL():
         restfreq = freq[iline-1]*1e9 # rest frequency (Hz)
 
         run_radmc = 'radmc3d image npix %i phi 0 iline %i \
-        sizeau %.f widthkms %.2f linenlam %i posang %.2f \
-        incl %.2f'%(npix, iline, sizeau, width_spw, nchan, pa, inc)
+        sizeau %.f widthkms %.2f vkms %.2f linenlam %i posang %.2f \
+        incl %.2f'%(npix, iline, sizeau, width_spw, vkms, nchan, pa, inc)
         print ('Solve radiative transfer.')
         print (run_radmc)
         os.system(run_radmc)
