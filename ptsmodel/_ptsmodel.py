@@ -1473,7 +1473,7 @@ class PTSMODEL():
             temp_min = 0.
             temp_max = np.nanmax(temp)
 
-        z_min, z_max = z_range if len(r_range) == 2 else [0., rmax]
+        z_min, z_max = z_range if len(z_range) == 2 else [0., rmax]
 
 
         # figure
