@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 import matplotlib
@@ -18,6 +19,33 @@ ts  = 5.78e3         # Solar temperature       [K]
 ls  = 3.8525e33      # Solar luminosity        [erg/s]
 rs  = 6.96e10        # Solar radius            [cm]
 
+
+def change_aspect_ratio(ax, ratio, plottype='linear'):
+    '''
+    This function change aspect ratio of figure.
+    Parameters:
+        ax: ax (matplotlit.pyplot.subplots())
+            Axes object
+        ratio: float or int
+            relative x axis width compared to y axis width.
+    '''
+    if plottype == 'linear':
+        aspect = (1/ratio) *(ax.get_xlim()[1] - ax.get_xlim()[0]) / (ax.get_ylim()[1] - ax.get_ylim()[0])
+    elif plottype == 'loglog':
+        aspect = (1/ratio) *(np.log10(ax.get_xlim()[1]) - np.log10(ax.get_xlim()[0])) / (np.log10(ax.get_ylim()[1]) - np.log10(ax.get_ylim()[0]))
+    elif plottype == 'linearlog':
+        aspect = (1/ratio) *(ax.get_xlim()[1] - ax.get_xlim()[0]) / np.log10(ax.get_ylim()[1]/ax.get_ylim()[0])
+    elif plottype == 'loglinear':
+        aspect = (1/ratio) *(np.log10(ax.get_xlim()[1]) - np.log10(ax.get_xlim()[0])) / (ax.get_ylim()[1] - ax.get_ylim()[0])
+    else:
+        print('ERROR\tchange_aspect_ratio: plottype must be choosen from the types below.')
+        print('   plottype can be linear or loglog.')
+        print('   plottype=loglinear and linearlog is being developed.')
+        return
+
+    aspect = np.abs(aspect)
+    aspect = float(aspect)
+    ax.set_aspect(aspect)
 
 
 # functions
@@ -228,9 +256,9 @@ def gas_density(model, outname = None, nrho_range=[], xlim=[], ylim=[],
 
 # plot temperature profile
 def plot_temperature(model, infile='dust_temperature.dat',
-	t_range=[], r_range=[], figsize=(11.69,8.27), cmap='coolwarm',
-	fontsize=14, wspace=0.4, hspace=0.2, clevels=[10,20,30,40,50,60],
-	aspect=1.):
+	t_range=[], x_range=[], y_range=[], r_range=[], z_range=[], figsize=(11.69,8.27), 
+	cmap='coolwarm', fontsize=14, wspace=0.4, hspace=0.2, 
+	clevels=[10,20,30,40,50,60], aspect=1., shrink=None):
 	'''
 	Plot temperature profile.
 
@@ -295,57 +323,227 @@ def plot_temperature(model, infile='dust_temperature.dat',
 
 	# figure
 	fig = plt.figure(figsize=figsize)
-
-	# plot #1: r-z plane
-	ax1     = fig.add_subplot(121)
-	divider = make_axes_locatable(ax1)
-	cax1    = divider.append_axes('right', '3%', pad='0%')
-
-	# plot
-	im1   = ax1.pcolormesh(rxy[:,:,nphi//2]/au, zz[:,:,nphi//2]/au,
-	 retemp[:,:,nphi//2], cmap=cmap, vmin = temp_min, vmax=temp_max, rasterized=True)
-
-	rxy_cont = (rxy[:nr,:ntheta,nphi//2] + rxy[1:nr+1,1:ntheta+1,nphi//2])*0.5
-	zz_cont = (zz[:nr,:ntheta,nphi//2] + zz[1:nr+1,1:ntheta+1,nphi//2])*0.5
-	im11  = ax1.contour(rxy_cont/au, zz_cont/au,
-	 retemp[:,:,nphi//2], colors='white', levels=clevels, linewidths=1.)
-
-	cbar1 = fig.colorbar(im1, cax=cax1)
-	ax1.set_xlabel(r'$r$ (au)')
-	ax1.set_ylabel(r'$z$ (au)')
-	#cbar1.set_label(r'$T_\mathrm{dust}\ \mathrm{(K)}$')
-
-	ax1.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True)
-	ax1.set_xlim(0,r_range[0])
-	ax1.set_ylim(0,r_range[1])
-	ax1.set_aspect(aspect)
-
-
-	# plot #2: x-y plane
+	# plot 1: r-z plane
+	ax1 = fig.add_subplot(121)
+	plot_temperature_rz(model, infile=infile, fig=fig, ax=ax1,
+		t_range=t_range, r_range=r_range, z_range=z_range, 
+		cmap=cmap, fontsize=fontsize, clevels=clevels, aspect=aspect, shrink=shrink)
+	# plot 2: x-y plane
 	ax2  = fig.add_subplot(122)
-	divider = make_axes_locatable(ax2)
-	cax2    = divider.append_axes('right', '3%', pad='0%')
-
-	indx_mid = np.argmin(np.abs(theta_c - np.pi*0.5)) # mid-plane
-	im2  = ax2.pcolormesh(xx[:,indx_mid,:]/au, yy[:,indx_mid,:]/au, retemp[:,indx_mid,:],
-	 cmap=cmap, vmin = t_range[0], vmax=t_range[1], rasterized=True)
-
-	cbar2 = fig.colorbar(im2, cax=cax2)
-	ax2.set_xlabel(r'$x$ (au)')
-	ax2.set_ylabel(r'$y$ (au)')
-	cbar2.set_label(r'$T_\mathrm{dust}\ \mathrm{(K)}$')
-	ax2.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True)
-
-	ax2.set_xlim(-r_range[1],r_range[1])
-	ax2.set_ylim(-r_range[1],r_range[1])
-
-	ax2.set_aspect(aspect)
+	plot_temperature_xy(model, infile=infile, fig=fig, ax=ax2,
+		t_range=t_range, x_range=x_range, y_range=y_range, 
+		cmap=cmap, fontsize=fontsize, clevels=clevels, aspect=aspect, shrink=shrink)
 
 	fig.subplots_adjust(wspace=wspace, hspace=hspace)
-	fig.savefig('temperature.pdf', transparent=True)
-	plt.close()
+	fig.savefig('dust_temperature.pdf', transparent=True)
+	return fig
 
 
+# plot temperature profile
+def plot_temperature_xy(model, infile='dust_temperature.dat', fig=None, ax=None,
+	t_range=[], x_range=[], y_range=[], figsize=(8.27, 8.27), cmap='coolwarm',
+	fontsize=14, clevels=[10,20,30,40,50,60],
+	aspect=1., shrink=None, savefig=False):
+	'''
+	Plot temperature profile.
+
+	Args:
+	'''
+
+	# check input
+	if type(model) == ptsmodel.PTSMODEL:
+		pass
+	else:
+		print ("ERROR\tvisualize: input must be PTSMODEL object.")
+
+
+	# setting for figures
+	#plt.rcParams['font.family'] ='Arial'    # font (Times New Roman, Helvetica, Arial)
+	plt.rcParams['xtick.direction'] = 'in'  # directions of x ticks ('in'), ('out') or ('inout')
+	plt.rcParams['ytick.direction'] = 'in'  # directions of y ticks ('in'), ('out') or ('inout')
+	plt.rcParams['font.size'] = fontsize    # fontsize
+
+	# read model
+	nr, ntheta, nphi = model.gridshape
+
+	# edge of cells
+	#  cuz the plot method, pcolormesh, requires the edge of each cell
+	ri     = model.ri
+	thetai = model.thetai
+	phii   = model.phii
+	theta_c = (thetai[0:ntheta] + thetai[1:ntheta+1])*0.5 # cell center
+
+	rr, tt, phph = np.meshgrid(ri, thetai, phii, indexing='ij')
+	rxy = rr*np.sin(tt)      # radius in xy-plane, r*sin(theta)
+	zz  = rr*np.cos(tt)      # z, r*cos(theta)
+
+	rho_d  = model.rho_d
+	nrho_g = model.nrho_g
+
+	xx = rxy*np.cos(phph)
+	yy = rxy*np.sin(phph)
+
+
+	# read file
+	if os.path.exists(infile):
+	    pass
+	else:
+	    print ('ERROR: Cannot find %s'%infile)
+	    return
+
+	data = pd.read_csv(infile, delimiter='\n', header=None).values
+	iformat = data[0]
+	imsize  = data[1]
+	ndspc   = data[2]
+	temp    = data[3:]
+
+	#retemp = temp.reshape((nr,ntheta,nphi))
+	retemp = temp.reshape((nphi,ntheta,nr)).T
+
+
+	# setting for figure
+	x_range = x_range if len(x_range) == 2 else [-np.nanmax(rr)/au, np.nanmax(rr)/au]
+	y_range = y_range if len(y_range) == 2 else [-np.nanmax(rr)/au, np.nanmax(rr)/au]
+	t_range = t_range if len(t_range) == 2 else [0., np.nanmax(temp)]
+
+
+	# figure
+	if fig:
+		pass
+	else:
+		fig = plt.figure(figsize=figsize)
+		ax = fig.add_subplot(111)
+		#divider = make_axes_locatable(ax)
+		#cax1    = divider.append_axes('right', '3%', pad='0%')
+
+	# plot
+	indx_mid = np.argmin(np.abs(theta_c - np.pi*0.5)) # mid-plane
+	im = ax.pcolormesh(xx[:,indx_mid,:]/au, yy[:,indx_mid,:]/au, 
+		retemp[:,indx_mid,:], cmap=cmap, vmin = t_range[0], vmax=t_range[1], 
+		rasterized=True)
+
+	shrink = shrink if shrink else aspect*0.8
+	cbar = fig.colorbar(im, ax=ax, shrink=shrink, pad=0.03)
+	ax.set_xlabel(r'$x$ (au)')
+	ax.set_ylabel(r'$y$ (au)')
+	cbar.set_label(r'$T_\mathrm{dust}\ \mathrm{(K)}$')
+	ax.tick_params(which='both', direction='in',
+		bottom=True, top=True, left=True, right=True)
+
+	ax.set_xlim(*x_range)
+	ax.set_ylim(*y_range)
+	#ax.set_aspect(aspect)
+	change_aspect_ratio(ax, aspect)
+
+	if savefig:
+		#fig.subplots_adjust(wspace=wspace, hspace=hspace)
+		fig.savefig('dust_temperature_xy.pdf', transparent=True)
+	return fig
+
+
+
+def plot_temperature_rz(model, infile='dust_temperature.dat', fig=None, ax=None,
+	t_range=[], r_range=[], z_range=[], figsize=(8.27, 8.27), cmap='coolwarm',
+	fontsize=14, clevels=[10,20,30,40,50,60],
+	aspect=1., shrink=None, savefig=False):
+	'''
+	Plot temperature profile.
+
+	Args:
+	'''
+
+	# check input
+	if type(model) == ptsmodel.PTSMODEL:
+		pass
+	else:
+		print ("ERROR\tvisualize: Input must be PTSMODEL object.")
+
+
+	# setting for figures
+	#plt.rcParams['font.family'] ='Arial'    # font (Times New Roman, Helvetica, Arial)
+	plt.rcParams['xtick.direction'] = 'in'  # directions of x ticks ('in'), ('out') or ('inout')
+	plt.rcParams['ytick.direction'] = 'in'  # directions of y ticks ('in'), ('out') or ('inout')
+	plt.rcParams['font.size'] = fontsize    # fontsize
+
+	# read model
+	nr, ntheta, nphi = model.gridshape
+
+	# edge of cells
+	#  cuz the plot method, pcolormesh, requires the edge of each cell
+	ri     = model.ri
+	thetai = model.thetai
+	phii   = model.phii
+	theta_c = (thetai[0:ntheta] + thetai[1:ntheta+1])*0.5 # cell center
+
+	rr, tt, phph = np.meshgrid(ri, thetai, phii, indexing='ij')
+	rxy = rr*np.sin(tt)      # radius in xy-plane, r*sin(theta)
+	zz  = rr*np.cos(tt)      # z, r*cos(theta)
+
+	rho_d  = model.rho_d
+	nrho_g = model.nrho_g
+
+	xx = rxy*np.cos(phph)
+	yy = rxy*np.sin(phph)
+
+
+	# read file
+	if os.path.exists(infile):
+	    pass
+	else:
+	    print ('ERROR: Cannot find %s'%infile)
+	    return
+
+	data = pd.read_csv(infile, delimiter='\n', header=None).values
+	iformat = data[0]
+	imsize  = data[1]
+	ndspc   = data[2]
+	temp    = data[3:]
+
+	#retemp = temp.reshape((nr,ntheta,nphi))
+	retemp = temp.reshape((nphi,ntheta,nr)).T
+
+
+	# setting for figure
+	r_range = r_range if len(r_range) == 2 else [np.nanmin(rr)/au, np.nanmax(rr)/au]
+	t_range = t_range if len(t_range) == 2 else [0., np.nanmax(temp)]
+	z_range = z_range if len(z_range) == 2 else [0., r_range[1]]
+
+
+	# figure
+	if fig:
+		pass
+	else:
+		fig = plt.figure(figsize=figsize)
+		ax = fig.add_subplot(111)
+		#divider = make_axes_locatable(ax1)
+		#cax1    = divider.append_axes('right', '3%', pad='0%')
+
+	# plot
+	im1   = ax.pcolormesh(rxy[:,:,nphi//2]/au, zz[:,:,nphi//2]/au,
+	 retemp[:,:,nphi//2], cmap=cmap, 
+	 vmin = t_range[0], vmax=t_range[1], rasterized=True)
+
+	rxy_cont = (rxy[:nr, :ntheta, nphi//2] + rxy[1:nr+1,1:ntheta+1,nphi//2])*0.5
+	zz_cont = (zz[:nr,:ntheta,nphi//2] + zz[1:nr+1,1:ntheta+1,nphi//2])*0.5
+	im11  = ax.contour(rxy_cont/au, zz_cont/au,
+	 retemp[:,:,nphi//2], colors='white', levels=clevels, linewidths=1.)
+
+	shrink = shrink if shrink else aspect*0.8
+	cbar = fig.colorbar(im1, ax=ax, shrink=shrink, pad=0.03)
+	ax.set_xlabel(r'$r$ (au)')
+	ax.set_ylabel(r'$z$ (au)')
+	cbar.set_label(r'$T_\mathrm{dust}\ \mathrm{(K)}$')
+
+	ax.tick_params(which='both', direction='in', bottom=True, top=True, left=True, right=True)
+	ax.set_xlim(*r_range)
+	ax.set_ylim(*z_range)
+	#ax1.set_aspect(aspect)
+	change_aspect_ratio(ax, aspect)
+
+	#fig.subplots_adjust(wspace=wspace, hspace=hspace)
+	if savefig:
+		fig.savefig('dust_temperature_rz.pdf', transparent=True)
+	return fig
 
 
 def gasdensity3d_faceon(model, step=1,
