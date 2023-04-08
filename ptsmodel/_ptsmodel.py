@@ -1390,7 +1390,7 @@ class PTSMODEL():
 
     # plot temperature profile
     def plot_temperature(self, infile='dust_temperature.dat',
-     t_range=[], r_range=[], figsize=(11.69,8.27), cmap='coolwarm',
+     t_range=[], r_range=[], z_range=[], figsize=(11.69,8.27), cmap='coolwarm',
       fontsize=14, wspace=0.4, hspace=0.2, clevels=[10,20,30,40,50,60],
        aspect=1.):
         '''
@@ -1473,6 +1473,8 @@ class PTSMODEL():
             temp_min = 0.
             temp_max = np.nanmax(temp)
 
+        z_min, z_max = z_range if len(r_range) == 2 else [0., rmax]
+
 
         # figure
         fig = plt.figure(figsize=figsize)
@@ -1498,7 +1500,7 @@ class PTSMODEL():
 
         ax1.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True)
         ax1.set_xlim(0,rmax/au)
-        ax1.set_ylim(0,rmax/au)
+        ax1.set_ylim(z_min/au, z_max/au)
         ax1.set_aspect(aspect)
 
 
