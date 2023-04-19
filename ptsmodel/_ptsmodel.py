@@ -981,7 +981,7 @@ class PTSMODEL():
         '''
 
         # read moldata
-        _, weight, nlevels, EJ, gJ, J, ntrans, Jup, Acoeff, freq, delE =\
+        _, weight, nlevels, EJ, gJ, J, ntrans, Jup, Jlow, Acoeff, freq, delE =\
         read_lamda_moldata('molecule_'+self.line+'.inp')
         restfreq = freq[iline-1]*1e9 # rest frequency (Hz)
 
