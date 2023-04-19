@@ -355,7 +355,7 @@ class PTSMODEL():
         if sig0:
             self.sig0 = mdisk
         else:
-            self.sig0 = mdisk/(2. * np.pi * (2. - gamma))
+            self.sig0 = mdisk * (2. - gamma)/(2. * np.pi * rc * rc)
 
         # surface density as a function of r
         sigma = self.sig0 * (rxy/rc)**(-gamma) * np.exp(- (rxy/rc)**(2. - gamma) )
