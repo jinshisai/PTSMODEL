@@ -4,7 +4,45 @@ import pandas as pd
 
 
 ### functions
-# temperature if exists
+
+# read
+def read_grid(f='amr_grid.inp', outpixel='center'):
+    # grid
+    if os.path.exists(f) == False:
+        print ('ERROR\tread_model: amr_grid.inp cannot be found.')
+        return 0
+
+    # dimension
+    nrtp             = np.genfromtxt(f, max_rows=1, skip_header=5, delimiter=' ',dtype=int)
+    nr, ntheta, nphi = nrtp
+    arraysize        = (nr,ntheta,nphi)
+
+    dread            = pd.read_csv(f, skiprows=6, comment='#', encoding='utf-8',header=None)
+    coords           = dread.values
+    ri, thetai, phii = np.split(coords,[nr+1,nr+ntheta+2])
+
+    # centers of each cell
+    rc       = 0.5 * ( ri[0:nr] + ri[1:nr+1] )                 # centers of each cell
+    thetac   = 0.5 * ( thetai[0:ntheta] + thetai[1:ntheta+1] )
+    phic     = 0.5 * ( phii[0:nphi] + phii[1:nphi+1] )
+
+    # get grid
+    #qq           = np.meshgrid(rc,thetac,phic,indexing='ij') # (r, theta, phi) in the spherical coordinate
+    #rr, tt, phph = qq
+    #zr           = 0.5*np.pi - tt # angle from z axis (90deg - theta)
+    #rxy          = rr*np.sin(tt)  # r in xy-plane
+    #zz           = rr*np.cos(tt)  # z in xyz coordinate
+
+    if outpixel == 'center':
+        return rc, thetac, phic
+    elif outpixel == 'edge':
+        return ri, thetai, phii
+    else:
+        print('WARNING\tread_grid: outpixel must be center or edge.')
+        print('WARNING\tread_grid: Ignore input value and return pixel centers.')
+        return rc, thetac, phic
+
+# read dust_temperature.dat
 def read_temperature(f='dust_temperature.dat'):
     '''
     Read a RADMC-3D temperature file.

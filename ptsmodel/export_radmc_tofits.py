@@ -396,63 +396,67 @@ def export_radmc_tofits(outname, f='image.out', obsinfo=None, restfreq=None, hdr
 
 
     # unit
-    if units == 'Jy/pixel':
-        # in cgs --> Jy/pixel
-        outimage = IcgsTOjpp(outimage,pixsize[0]/au,pixsize[1]/au,dist)
-        hdr['BUNIT'] = ('Jy/pixel', 'Brightness (pixel) unit')
-        if beam_convolution:
-            print ('Currently beam convolution is not supported when unit \
-                of Jy/pixel is used.')
-            beam_convolution = False
-        Tb = False
+    #if units == 'Jy/pixel':
+    #    # in cgs --> Jy/pixel
+    #    outimage = IcgsTOjpp(outimage,pixsize[0]/au,pixsize[1]/au,dist)
+    #    hdr['BUNIT'] = ('Jy/pixel', 'Brightness (pixel) unit')
+    #    if beam_convolution:
+    #        print ('Currently beam convolution is not supported when unit \
+    #            of Jy/pixel is used.')
+    #        beam_convolution = False
+    #    Tb = False
 
 
     # beam convolution
     if beam_convolution:
-        print ('convolving a beam...')
-        if len(beam)==0:
-            print ('ERROR\texport_radmc_tofits: The parameter beam is not found.\
-                 It is necessary if you want to perform beam convolution.')
-            return
-        elif len(beam)==3:
+        if len(beam)==3:
+            print ('Convolving a beam...')
+            # beam
             bmaj, bmin, bpa = beam
+
+            # convolution
+            xc    = np.arange(xmin,xmax+delx,delx)
+            yc    = np.arange(ymin,ymax+dely,dely)
+            xx,yy = np.meshgrid(xc, yc)
+
+            sigx = 0.5*bmin/np.sqrt(2.*np.log(2.))/3600.            # in degree
+            sigy = 0.5*bmaj/np.sqrt(2.*np.log(2.))/3600.            # in degree
+            area = 1.
+            beam = gaussian2D(xx, yy, area, 0., 0., sigx, sigy, pa = bpa)
+
+            '''
+            for ichan in range(nlam):
+                imconv = outimage[0,ichan,:,:]
+                outimage[0,ichan,:,:] = convolve_fft(imconv, beam, nan_treatment='fill')
+            '''
+            outimage = np.array([
+                convolve_fft(outimage[0,ichan,:,:], beam, nan_treatment='fill')
+                for ichan in range(nlam) ])
+            outimage = outimage.reshape(1, nlam, ny, nx)
+
+            # in cgs --> Jy/beam
+            outimage = IcgsTObeam(outimage,bmaj,bmin)
+
+            # header
+            hdr['BMAJ'] = bmaj/3600. # degree
+            hdr['BMIN'] = bmin/3600. # degree
+            hdr['BPA']  = bpa
         else:
-            print ('ERROR\texport_radmc_tofits: The input beam is wrong.\
-                 It must be [bmaj, bmin, bpa]. The units will be arcsec, arcsec, and degree, respectively.')
-            return
-
-        # convolution
-        xc    = np.arange(xmin,xmax+delx,delx)
-        yc    = np.arange(ymin,ymax+dely,dely)
-        xx,yy = np.meshgrid(xc, yc)
-
-        sigx = 0.5*bmin/np.sqrt(2.*np.log(2.))/3600.            # in degree
-        sigy = 0.5*bmaj/np.sqrt(2.*np.log(2.))/3600.            # in degree
-        area = 1.
-        beam = gaussian2D(xx, yy, area, 0., 0., sigx, sigy, pa = bpa)
-
-
-        '''
-        for ichan in range(nlam):
-            imconv = outimage[0,ichan,:,:]
-            outimage[0,ichan,:,:] = convolve_fft(imconv, beam, nan_treatment='fill')
-        '''
-        outimage = np.array([
-            convolve_fft(outimage[0,ichan,:,:], beam, nan_treatment='fill')
-            for ichan in range(nlam) ])
-        outimage = outimage.reshape(1, nlam, ny, nx)
-
-        # in cgs --> Jy/beam
-        outimage = IcgsTObeam(outimage,bmaj,bmin)
-
-        # header
-        hdr['BMAJ'] = bmaj/3600. # degree
-        hdr['BMIN'] = bmin/3600. # degree
-        hdr['BPA']  = bpa
+            print ('ERROR\texport_radmc_tofits: The format of the input beam is wrong.\
+                 beam must be given as [bmaj (arcsec), bmin (arcsec), bpa (deg)].')
+            print ('ERROR\texport_radmc_tofits: Output units will be Jy/pixel.')
+            beam_convolution = False
+            # in cgs --> Jy/pixel
+            outimage = IcgsTOjpp(outimage,pixsize[0]/au,pixsize[1]/au,dist)
+            hdr['BUNIT'] = ('Jy/pixel', 'Brightness (pixel) unit')
+    else:
+        # in cgs --> Jy/pixel
+        outimage = IcgsTOjpp(outimage,pixsize[0]/au,pixsize[1]/au,dist)
+        hdr['BUNIT'] = ('Jy/pixel', 'Brightness (pixel) unit')
 
 
     # Jy/beam --> Tb
-    if Tb:
+    if beam_convolution & Tb:
         print ('converting unit from Jy/beam to Kelvine...')
         outimage = np.array([IvTOJT(freq[i], bmaj/3600., bmin/3600., outimage[0,i,:,:])
             for i in range(nlam)])
