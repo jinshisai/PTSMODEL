@@ -50,17 +50,29 @@ class PTSMODEL():
     '''
 
     def __init__(self, modelname, nr=None, ntheta=None, nphi=None ,rmin=None, rmax=None,
-     thetamin=0., thetamax=np.pi*0.5, phimin=0., phimax=2.*np.pi, readfiles=False):
+     thetamin=0., thetamax=np.pi*0.5, phimin=0., phimax=2.*np.pi, line=None, Xmol=None,
+     readfiles=False):
         self.modelname = modelname
 
         # initialize
-        self.disk     = 0
-        self.envelope = 0
-        self.cavity   = 0
-        self.rho_disk = np.array([])
-        self.rho_env  = np.array([])
-        self.rho_g    = np.array([])
-        self.turbulence = False
+        self.disk     = 0 # if model disk
+        self.envelope = 0 # if model envelope
+        self.cavity   = 0 # if model cavity
+        self.rho_disk = np.array([]) # H2 density of disk
+        self.rho_env  = np.array([]) # H2 density of envelope
+        self.turbulence = False # turbulence
+        self.line = line if ( (type(line) == tuple) | (type(line) == list))\
+        else [line]  # line(s)
+        _Xmol = Xmol if ( (type(Xmol) == tuple) | (type(Xmol) == list))\
+        else [Xmol]  # line(s)
+        if len(_Xmol) != len(line):
+            print(_Xmol, line)
+            print('ERROR\tPTSMODEL: Dimention of line and Xmol must be the same.')
+            return
+        else:
+            self.Xmol = {self.line[i]: _Xmol[i] for i in range(len(line))}
+        self.rho_g = {self.line[i]: np.array([]) for i in range(len(line))}
+        self.nrho_g = {self.line[i]: np.array([]) for i in range(len(line))}
 
         if readfiles:
             self.read_model()
@@ -155,15 +167,20 @@ class PTSMODEL():
             nrho_g = dread.values
             nrho_g = np.reshape(nrho_g.T,arraysize,order='F')
         else:
-            f = files[0]
-            print ("WARNING\t: More than two numberdens_*.inp files? Read '%s' for the moment."%f)
-            dread  = pd.read_table(f, skiprows=2, comment='#', encoding='utf-8',header=None)
-            nrho_g = dread.values
-            nrho_g = np.reshape(nrho_g.T,arraysize,order='F')
+            self.line = [files[i].split('_')[-1].split('.')[0] for i in range(len(files))]
+            self.nrho_g = { i: np.array([]) for i in self.line}
+            for i, line in enumerate(self.line):
+                f = files[i]
+                #print ("WARNING\t: More than two numberdens_*.inp files? Read '%s' for the moment."%f)
+                dread  = pd.read_table(f, skiprows=2, comment='#', encoding='utf-8',header=None)
+                nrho_g = dread.values
+                nrho_g = np.reshape(nrho_g.T,arraysize,order='F')
+                # save
+                self.nrho_g[line] = nrho_g
 
         # save
         self.rho_d  = rho_d
-        self.nrho_g = nrho_g
+        #self.nrho_g = nrho_g
 
 
         # gas velocity [cm/s]
@@ -608,7 +625,7 @@ class PTSMODEL():
         self.rho_cavity   = rho_cavity
 
 
-    def rho_model(self, Xconv, mu=2.8, gtod_ratio = 100., disk_height=1):
+    def rho_model(self, mu=2.37, gtod_ratio = 100., disk_height=1):
         '''
         Make a density model
 
@@ -647,16 +664,16 @@ class PTSMODEL():
         # density of the total gas (H2 gas) & dust
         rho_h2 = rho
         rho_d  = rho_h2/gtod_ratio
-
-        # density of the target molecule
-        rho_g  = rho_h2*Xconv
-        nrho_g = rho_g/(mu*mp)
-
         # save
         self.rho_H2 = rho_h2
         self.rho_d  = rho/gtod_ratio
-        self.rho_g  = rho_g
-        self.nrho_g = nrho_g
+
+        # for molecules
+        for i in self.line:
+            _, weight, nlevels, EJ, gJ, J, ntrans, Jup, Jlow, Acoeff, freq, delE = \
+            read_lamda_moldata('molecule_'+i+'.inp')
+            self.rho_g[i]  = rho_h2*self.Xmol[i]
+            self.nrho_g[i] = self.rho_g[i]/(weight*mp)
 
 
     # Velocity distributions
@@ -671,11 +688,11 @@ class PTSMODEL():
         vphi   = np.zeros(self.gridshape)
 
         # read density
-        if self.rho_g.size:
-            pass
-        else:
-            print ('ERROR: No density distribution. Make density distribution before calculating v-field.')
-            return
+        #if self.rho_g.size:
+        #    pass
+        #else:
+        #    print ('ERROR: No density distribution. Make density distribution before calculating v-field.')
+        #    return
 
         if (self.disk ==1) & (self.envelope == 1):
             # v_envelope
@@ -821,10 +838,9 @@ class PTSMODEL():
 
     # Make input files for RADMC-3D
     def export_to_radmc3d(self, nphot, dustopac='nrmS03',
-        line=None, iseed = -5415, scattering_mode=0):
+        iseed = -5415, scattering_mode=0):
         nr, ntheta, nphi = self.gridshape
         self.dustopac = dustopac
-        self.line     = line
         ############### Output the model into radmc3d files ############
         # Write the wavelength_micron.inp file
         #
@@ -916,18 +932,20 @@ class PTSMODEL():
                 np.savetxt(f,data.T,fmt=['%13.6e'])
         # Write the lines.inp control file
         #
-        if self.line:
+        if self.line is not None:
             with open('lines.inp','w') as f:
                 f.write('1\n')
                 f.write('1\n')
-                f.write('%s    leiden    0    0\n'%line)
+                for i in self.line:
+                    f.write('%s    leiden    0    0    0\n'%i)
             # Write the molecule number density file.
             #
-            with open('numberdens_%s.inp'%line,'w+') as f:
-                f.write('1\n')                       # Format number
-                f.write('%d\n'%(nr*ntheta*nphi))     # Nr of cells
-                data = self.nrho_g.ravel(order='F')  # Create a 1-D view, fortran-style indexing
-                np.savetxt(f,data.T,fmt=['%13.6e'])
+            for line in self.line:
+                with open('numberdens_%s.inp'%line,'w+') as f:
+                    f.write('1\n')                       # Format number
+                    f.write('%d\n'%(nr*ntheta*nphi))     # Nr of cells
+                    data = self.nrho_g[line].ravel(order='F') # Create a 1-D view, fortran-style indexing
+                    np.savetxt(f,data.T,fmt=['%13.6e'])
         #
         # Write the radmc3d.inp control file
         #
@@ -961,7 +979,8 @@ class PTSMODEL():
 
 
     def solve_radtrans_line(self, npix, iline, sizeau,
-        width_spw, nchan, pa, inc, vkms=0., contsub=True):
+        width_spw, nchan, pa, inc, imolspec=1, vkms=0., 
+        contsub=True):
         '''
         Solve radiative transfer for line with RADMC3D.
 
@@ -982,18 +1001,18 @@ class PTSMODEL():
 
         # read moldata
         _, weight, nlevels, EJ, gJ, J, ntrans, Jup, Jlow, Acoeff, freq, delE =\
-        read_lamda_moldata('molecule_'+self.line+'.inp')
+        read_lamda_moldata('molecule_'+self.line[imolspec-1]+'.inp')
         restfreq = freq[iline-1]*1e9 # rest frequency (Hz)
 
-        run_radmc = 'radmc3d image npix %i phi 0 iline %i \
+        run_radmc = 'radmc3d image imolspec %i npix %i phi 0 iline %i \
         sizeau %.f widthkms %.2f vkms %.2f linenlam %i posang %.2f \
-        incl %.2f'%(npix, iline, sizeau, width_spw, vkms, nchan, pa, inc)
+        incl %.2f'%(imolspec, npix, iline, sizeau, width_spw, vkms, nchan, pa, inc)
         print ('Solve radiative transfer.')
         print (run_radmc)
         os.system(run_radmc)
 
         # output
-        fout_line = 'image_%s%i%i.out'%(self.line, iline, iline-1)
+        fout_line = 'image_%s%i%i.out'%(self.line[imolspec-1], iline, iline-1)
         print ('image.out --> '+fout_line)
         os.system('mv image.out '+fout_line)
 
@@ -1015,12 +1034,12 @@ class PTSMODEL():
             print (run_radmc)
             os.system(run_radmc)
             # output
-            fout_cont = 'image_%s%i%i_cont.out'%(self.line, iline, iline-1)
+            fout_cont = 'image_%s%i%i_cont.out'%(self.line[imolspec-1], iline, iline-1)
             print ('image.out --> '+fout_cont)
             os.system('cp image.out '+fout_cont)
 
             # contsub
-            _ = image_contsub(self.line, iline)
+            _ = image_contsub(self.line[imolspec-1], iline)
 
 
     def solve_radtrans_cont(self, npix, sizeau, pa, inc, lam):
@@ -1063,7 +1082,8 @@ class PTSMODEL():
     # plot for check
     # plot density
     def show_density(self, rho_d_range=[], nrho_g_range=[],
-        figsize=(11.69,8.27), cmap='coolwarm', fontsize=14, wspace=0.4, hspace=0.2):
+        figsize=(11.69,8.27), cmap='coolwarm', 
+        fontsize=14, wspace=0.4, hspace=0.2, imol=0):
         '''
         Visualize density distribution as 2-D slices.
 
@@ -1104,7 +1124,7 @@ class PTSMODEL():
         #zz     = self.zz
 
         rho_d  = self.rho_d
-        nrho_g = self.nrho_g
+        nrho_g = self.nrho_g[self.line[imol]]
 
         xx = rxy*np.cos(phph)
         yy = rxy*np.sin(phph)
@@ -1217,7 +1237,7 @@ class PTSMODEL():
     # plot velocity field
     def show_vfield(self, nrho_g_range=[], r_range=[], step=1,
      figsize=(11.69,8.27), vscale=3e2, width=10. ,cmap='coolwarm',
-      fontsize=14, wspace=0.4, hspace=0.2):
+      fontsize=14, wspace=0.4, hspace=0.2, imol=0):
         '''
         Visualize density distribution as 2-D slices.
 
@@ -1265,7 +1285,7 @@ class PTSMODEL():
         zz   = self.zz
 
         # density
-        nrho_g = self.nrho_g
+        nrho_g = self.nrho_g[self.line[imol]]
 
         # velocity
         vr     = self.vr
@@ -1392,7 +1412,7 @@ class PTSMODEL():
     def plot_temperature(self, infile='dust_temperature.dat',
      t_range=[], r_range=[], z_range=[], figsize=(11.69,8.27), cmap='coolwarm',
       fontsize=14, wspace=0.4, hspace=0.2, clevels=[10,20,30,40,50,60],
-       aspect=1.):
+       aspect=1., imol=0):
         '''
         Plot temperature profile.
 
@@ -1428,7 +1448,7 @@ class PTSMODEL():
         zz  = rr*np.cos(tt)      # z, r*cos(theta)
 
         rho_d  = self.rho_d
-        nrho_g = self.nrho_g
+        nrho_g = self.nrho_g[self.line[imol]]
 
         xx = rxy*np.cos(phph)
         yy = rxy*np.sin(phph)

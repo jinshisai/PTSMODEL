@@ -150,7 +150,7 @@ def dust_density(model, outname = None,
 def gas_density(model, outname = None, nrho_range=[], xlim=[], ylim=[],
 	rlim=[], zlim=[],
 	figsize=(11.69,8.27), cmap='coolwarm',
-	 fontsize=14, wspace=0.4, hspace=0.2):
+	 fontsize=14, wspace=0.4, hspace=0.2, imol=0):
 	'''
 	Visualize density distribution as 2-D slices.
 
@@ -190,7 +190,7 @@ def gas_density(model, outname = None, nrho_range=[], xlim=[], ylim=[],
 	#rxy    = self.rxy
 	#zz     = self.zz
 
-	nrho_g = model.nrho_g
+	nrho_g = model.nrho_g[model.line[imol]]
 
 	xx = rxy*np.cos(phph)
 	yy = rxy*np.sin(phph)
@@ -258,7 +258,7 @@ def gas_density(model, outname = None, nrho_range=[], xlim=[], ylim=[],
 def plot_temperature(model, infile='dust_temperature.dat',
 	t_range=[], x_range=[], y_range=[], r_range=[], z_range=[], figsize=(11.69,8.27), 
 	cmap='coolwarm', fontsize=14, wspace=0.4, hspace=0.2, 
-	clevels=[10,20,30,40,50,60], aspect=1., shrink=None):
+	clevels=[10,20,30,40,50,60], aspect=1., shrink=None, imol=0):
 	'''
 	Plot temperature profile.
 
@@ -293,7 +293,7 @@ def plot_temperature(model, infile='dust_temperature.dat',
 	zz  = rr*np.cos(tt)      # z, r*cos(theta)
 
 	rho_d  = model.rho_d
-	nrho_g = model.nrho_g
+	nrho_g = model.nrho_g[model.line[imol]]
 
 	xx = rxy*np.cos(phph)
 	yy = rxy*np.sin(phph)
@@ -343,7 +343,7 @@ def plot_temperature(model, infile='dust_temperature.dat',
 def plot_temperature_xy(model, infile='dust_temperature.dat', fig=None, ax=None,
 	t_range=[], x_range=[], y_range=[], figsize=(8.27, 8.27), cmap='coolwarm',
 	fontsize=14, clevels=[10,20,30,40,50,60],
-	aspect=1., shrink=None, savefig=False):
+	aspect=1., shrink=None, savefig=False, imol=0):
 	'''
 	Plot temperature profile.
 
@@ -378,7 +378,7 @@ def plot_temperature_xy(model, infile='dust_temperature.dat', fig=None, ax=None,
 	zz  = rr*np.cos(tt)      # z, r*cos(theta)
 
 	rho_d  = model.rho_d
-	nrho_g = model.nrho_g
+	nrho_g = model.nrho_g[model.line[imol]]
 
 	xx = rxy*np.cos(phph)
 	yy = rxy*np.sin(phph)
@@ -445,7 +445,7 @@ def plot_temperature_xy(model, infile='dust_temperature.dat', fig=None, ax=None,
 def plot_temperature_rz(model, infile='dust_temperature.dat', fig=None, ax=None,
 	t_range=[], r_range=[], z_range=[], figsize=(8.27, 8.27), cmap='coolwarm',
 	fontsize=14, clevels=[10,20,30,40,50,60],
-	aspect=1., shrink=None, savefig=False):
+	aspect=1., shrink=None, savefig=False, imol=0):
 	'''
 	Plot temperature profile.
 
@@ -480,7 +480,7 @@ def plot_temperature_rz(model, infile='dust_temperature.dat', fig=None, ax=None,
 	zz  = rr*np.cos(tt)      # z, r*cos(theta)
 
 	rho_d  = model.rho_d
-	nrho_g = model.nrho_g
+	nrho_g = model.nrho_g[model.line[imol]]
 
 	xx = rxy*np.cos(phph)
 	yy = rxy*np.sin(phph)
