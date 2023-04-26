@@ -935,7 +935,7 @@ class PTSMODEL():
         if self.line is not None:
             with open('lines.inp','w') as f:
                 f.write('1\n')
-                f.write('1\n')
+                f.write('%i\n'%(len*self.line))
                 for i in self.line:
                     f.write('%s    leiden    0    0    0\n'%i)
             # Write the molecule number density file.
