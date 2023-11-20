@@ -228,7 +228,7 @@ def gas_density(model, outname = None, nrho_range=[], xlim=[], ylim=[],
 
 
 # plot temperature profile
-def plot_temperature(model, infile='dust_temperature.dat',
+def temperature(model, infile='dust_temperature.dat',
 	t_range=[], r_range=[], figsize=(11.69,8.27), cmap='coolwarm',
 	fontsize=14, wspace=0.4, hspace=0.2, clevels=[10,20,30,40,50,60],
 	aspect=1.):
@@ -304,7 +304,7 @@ def plot_temperature(model, infile='dust_temperature.dat',
 
 	# plot
 	im1   = ax1.pcolormesh(rxy[:,:,nphi//2]/au, zz[:,:,nphi//2]/au,
-	 retemp[:,:,nphi//2], cmap=cmap, vmin = temp_min, vmax=temp_max, rasterized=True)
+	 retemp[:,:,nphi//2], cmap=cmap, vmin = t_range[0], vmax=t_range[1], rasterized=True)
 
 	rxy_cont = (rxy[:nr,:ntheta,nphi//2] + rxy[1:nr+1,1:ntheta+1,nphi//2])*0.5
 	zz_cont = (zz[:nr,:ntheta,nphi//2] + zz[1:nr+1,1:ntheta+1,nphi//2])*0.5
