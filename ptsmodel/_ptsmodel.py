@@ -189,7 +189,7 @@ class PTSMODEL():
         # temperature if exists
         f = 'dust_temperature.dat'
         if os.path.exists(f):
-            data = pd.read_csv(f, delimiter='\n', header=None).values
+            data = np.genfromtxt(f, delimiter='\n',)#.values
             iformat = data[0]
             imsize  = data[1]
             ndspc   = data[2]

@@ -229,7 +229,7 @@ def gas_density(model, outname = None, nrho_range=[], xlim=[], ylim=[],
 
 # plot temperature profile
 def temperature(model, infile='dust_temperature.dat',
-	t_range=[], r_range=[], figsize=(11.69,8.27), cmap='coolwarm',
+	trange=[], rrange=[], figsize=(11.69,8.27), cmap='coolwarm',
 	fontsize=14, wspace=0.4, hspace=0.2, clevels=[10,20,30,40,50,60],
 	aspect=1.):
 	'''
@@ -279,7 +279,7 @@ def temperature(model, infile='dust_temperature.dat',
 	    print ('ERROR: Cannot find %s'%infile)
 	    return
 
-	data = pd.read_csv(infile, delimiter='\n', header=None).values
+	data = np.genfromtxt(infile, delimiter='\n',)
 	iformat = data[0]
 	imsize  = data[1]
 	ndspc   = data[2]
@@ -290,8 +290,8 @@ def temperature(model, infile='dust_temperature.dat',
 
 
 	# setting for figure
-	r_range = r_range if len(r_range) == 2 else [np.nanmin(rr)/au, np.nanmax(rr)/au]
-	t_range = t_range if len(t_range) == 2 else [0., np.nanmax(temp)]
+	rrange = rrange if len(rrange) == 2 else [np.nanmin(rr)/au, np.nanmax(rr)/au]
+	trange = trange if len(trange) == 2 else [0., np.nanmax(temp)]
 
 
 	# figure
@@ -304,7 +304,7 @@ def temperature(model, infile='dust_temperature.dat',
 
 	# plot
 	im1   = ax1.pcolormesh(rxy[:,:,nphi//2]/au, zz[:,:,nphi//2]/au,
-	 retemp[:,:,nphi//2], cmap=cmap, vmin = t_range[0], vmax=t_range[1], rasterized=True)
+	 retemp[:,:,nphi//2], cmap=cmap, vmin = trange[0], vmax=trange[1], rasterized=True)
 
 	rxy_cont = (rxy[:nr,:ntheta,nphi//2] + rxy[1:nr+1,1:ntheta+1,nphi//2])*0.5
 	zz_cont = (zz[:nr,:ntheta,nphi//2] + zz[1:nr+1,1:ntheta+1,nphi//2])*0.5
@@ -317,8 +317,8 @@ def temperature(model, infile='dust_temperature.dat',
 	#cbar1.set_label(r'$T_\mathrm{dust}\ \mathrm{(K)}$')
 
 	ax1.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True)
-	ax1.set_xlim(0,r_range[0])
-	ax1.set_ylim(0,r_range[1])
+	ax1.set_xlim(0,rrange[1])
+	ax1.set_ylim(0,rrange[1])
 	ax1.set_aspect(aspect)
 
 
@@ -329,7 +329,7 @@ def temperature(model, infile='dust_temperature.dat',
 
 	indx_mid = np.argmin(np.abs(theta_c - np.pi*0.5)) # mid-plane
 	im2  = ax2.pcolormesh(xx[:,indx_mid,:]/au, yy[:,indx_mid,:]/au, retemp[:,indx_mid,:],
-	 cmap=cmap, vmin = t_range[0], vmax=t_range[1], rasterized=True)
+	 cmap=cmap, vmin = trange[0], vmax=trange[1], rasterized=True)
 
 	cbar2 = fig.colorbar(im2, cax=cax2)
 	ax2.set_xlabel(r'$x$ (au)')
@@ -337,8 +337,8 @@ def temperature(model, infile='dust_temperature.dat',
 	cbar2.set_label(r'$T_\mathrm{dust}\ \mathrm{(K)}$')
 	ax2.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True)
 
-	ax2.set_xlim(-r_range[1],r_range[1])
-	ax2.set_ylim(-r_range[1],r_range[1])
+	ax2.set_xlim(-rrange[1],rrange[1])
+	ax2.set_ylim(-rrange[1],rrange[1])
 
 	ax2.set_aspect(aspect)
 
