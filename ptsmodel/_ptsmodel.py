@@ -670,10 +670,11 @@ class PTSMODEL():
 
         # for molecules
         for i in self.line:
-            _, weight, nlevels, EJ, gJ, J, ntrans, Jup, Jlow, Acoeff, freq, delE = \
-            read_lamda_moldata('molecule_'+i+'.inp')
-            self.rho_g[i]  = rho_h2*self.Xmol[i]
-            self.nrho_g[i] = self.rho_g[i]/(weight*mp)
+            if i is not None:
+                _, weight, nlevels, EJ, gJ, J, ntrans, Jup, Jlow, Acoeff, freq, delE = \
+                read_lamda_moldata('molecule_'+i+'.inp')
+                self.rho_g[i]  = rho_h2*self.Xmol[i]
+                self.nrho_g[i] = self.rho_g[i]/(weight*mp)
 
 
     # Velocity distributions
