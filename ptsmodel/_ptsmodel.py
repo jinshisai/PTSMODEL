@@ -1131,7 +1131,6 @@ class PTSMODEL():
         #zz     = self.zz
 
         rho_d  = self.rho_d
-        nrho_g = self.nrho_g[self.line[imol]]
 
         xx = rxy*np.cos(phph)
         yy = rxy*np.sin(phph)
@@ -1194,51 +1193,54 @@ class PTSMODEL():
         ax2.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True, pad=9)
         ax2.set_aspect(1)
 
-
-
-        # gas disk
-        fig2 = plt.figure(figsize=figsize)
-
-        # plot 1; gas number density in r vs z
-        ax3     = fig2.add_subplot(121)
-        divider = mpl_toolkits.axes_grid1.make_axes_locatable(ax3)
-        cax3    = divider.append_axes('right', '3%', pad='0%')
-
-        im3   = ax3.pcolormesh(rxy[:,:,nphi//2]/au, zz[:,:,nphi//2]/au, nrho_g[:,:,nphi//2],
-         cmap=cmap, norm = colors.LogNorm(vmin = nrho_g_min, vmax=nrho_g_max), rasterized=True)
-        cbar3 = fig2.colorbar(im3,cax=cax3)
-
-        ax3.set_xlabel('radius (au)')
-        ax3.set_ylabel('z (au)')
-        #cbar3.set_label(r'$n_\mathrm{gas}\ \mathrm{(cm^{-3})}$')
-        ax3.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True, pad=9)
-        ax3.set_aspect(1)
-
-
-        # plot 2; density in r vs phi (xy-plane)
-        ax4     = fig2.add_subplot(122)
-        divider = mpl_toolkits.axes_grid1.make_axes_locatable(ax4)
-        cax4    = divider.append_axes('right', '3%', pad='0%')
-
-        im4   = ax4.pcolormesh(xx[:,indx_mid,:]/au, yy[:,indx_mid,:]/au, nrho_g[:,indx_mid,:], cmap=cmap,
-         norm = colors.LogNorm(vmin = nrho_g_min, vmax=nrho_g_max), rasterized=True)
-        #im4   = ax4.pcolor(rr[:,-1,:]/au, phph[:,-1,:], nrho_gas[:,-1,:], cmap=cm.coolwarm, norm = colors.LogNorm(vmin = 10., vmax=1.e4))
-
-        cbar4 = fig2.colorbar(im4,cax=cax4)
-        ax4.set_xlabel('x (au)')
-        ax4.set_ylabel('y (au)')
-        cbar4.set_label(r'$n_\mathrm{gas}\ \mathrm{(cm^{-3})}$')
-        ax4.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True, pad=9)
-        ax4.set_aspect(1)
-
-
         # save figures
         fig1.subplots_adjust(wspace=wspace, hspace=hspace)
         fig1.savefig('dust_density.pdf',transparent=True)
+        #plt.close()
 
-        fig2.subplots_adjust(wspace=wspace, hspace=hspace)
-        fig2.savefig('gas_density.pdf',transparent=True)
-        plt.close()
+
+        # gas disk
+        if self.line[imol] is not None:
+            nrho_g = self.nrho_g[self.line[imol]]
+
+            # figure
+            fig2 = plt.figure(figsize=figsize)
+
+            # plot 1; gas number density in r vs z
+            ax3     = fig2.add_subplot(121)
+            divider = mpl_toolkits.axes_grid1.make_axes_locatable(ax3)
+            cax3    = divider.append_axes('right', '3%', pad='0%')
+
+            im3   = ax3.pcolormesh(rxy[:,:,nphi//2]/au, zz[:,:,nphi//2]/au, nrho_g[:,:,nphi//2],
+             cmap=cmap, norm = colors.LogNorm(vmin = nrho_g_min, vmax=nrho_g_max), rasterized=True)
+            cbar3 = fig2.colorbar(im3,cax=cax3)
+
+            ax3.set_xlabel('radius (au)')
+            ax3.set_ylabel('z (au)')
+            #cbar3.set_label(r'$n_\mathrm{gas}\ \mathrm{(cm^{-3})}$')
+            ax3.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True, pad=9)
+            ax3.set_aspect(1)
+
+
+            # plot 2; density in r vs phi (xy-plane)
+            ax4     = fig2.add_subplot(122)
+            divider = mpl_toolkits.axes_grid1.make_axes_locatable(ax4)
+            cax4    = divider.append_axes('right', '3%', pad='0%')
+
+            im4   = ax4.pcolormesh(xx[:,indx_mid,:]/au, yy[:,indx_mid,:]/au, nrho_g[:,indx_mid,:], cmap=cmap,
+             norm = colors.LogNorm(vmin = nrho_g_min, vmax=nrho_g_max), rasterized=True)
+            #im4   = ax4.pcolor(rr[:,-1,:]/au, phph[:,-1,:], nrho_gas[:,-1,:], cmap=cm.coolwarm, norm = colors.LogNorm(vmin = 10., vmax=1.e4))
+
+            cbar4 = fig2.colorbar(im4,cax=cax4)
+            ax4.set_xlabel('x (au)')
+            ax4.set_ylabel('y (au)')
+            cbar4.set_label(r'$n_\mathrm{gas}\ \mathrm{(cm^{-3})}$')
+            ax4.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True, pad=9)
+            ax4.set_aspect(1)
+
+            fig2.subplots_adjust(wspace=wspace, hspace=hspace)
+            fig2.savefig('gas_density.pdf',transparent=True)
+            plt.close()
 
 
     # plot velocity field
@@ -1266,6 +1268,11 @@ class PTSMODEL():
         plt.rcParams['ytick.direction'] = 'in'      # directions of y ticks ('in'), ('out') or ('inout')
         plt.rcParams['font.size']       = fontsize  # fontsize
 
+
+        if self.line[0] is None:
+            print('ERROR\tsolve_radtrans_line: No lines are specified.')
+            print('ERROR\tsolve_radtrans_line: Check if line is given correctly.')
+            return 0
 
         # read model
         nr, ntheta, nphi = self.gridshape
@@ -1454,8 +1461,8 @@ class PTSMODEL():
         rxy = rr*np.sin(tt)      # radius in xy-plane, r*sin(theta)
         zz  = rr*np.cos(tt)      # z, r*cos(theta)
 
-        rho_d  = self.rho_d
-        nrho_g = self.nrho_g[self.line[imol]]
+        #rho_d  = self.rho_d
+        #nrho_g = self.nrho_g[self.line[imol]]
 
         xx = rxy*np.cos(phph)
         yy = rxy*np.sin(phph)
