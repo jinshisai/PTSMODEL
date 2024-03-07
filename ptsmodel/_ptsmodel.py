@@ -933,7 +933,7 @@ class PTSMODEL():
                 np.savetxt(f,data.T,fmt=['%13.6e'])
         # Write the lines.inp control file
         #
-        if self.line is not None:
+        if self.line[0] is not None:
             with open('lines.inp','w') as f:
                 f.write('1\n')
                 f.write('%i\n'%(len(self.line)))
@@ -965,9 +965,10 @@ class PTSMODEL():
         '''
         # files
         path_infiles = model_utils.__file__.split('ptsmodel')[0]+'infiles/'
-        fins = ['dustkappa_%s.inp'%self.dustopac, 'molecule_%s.inp'%self.line] if self.line is not None\
-        else [ 'dustkappa_%s.inp'%self.dustopac ]
-        for fin in ['dustkappa_%s.inp'%self.dustopac, 'molecule_%s.inp'%self.line]:
+        fins = ['dustkappa_%s.inp'%self.dustopac]
+        flines = [] if self.line[0] is None else ['molecule_%s.inp'%i for i in self.line]
+        fins = fins + flines
+        for fin in fins:
             if os.path.exists(fin) == False:
                 if os.path.exists(path_infiles + fin):
                     shutil.copy(path_infiles + fin, '.')
@@ -999,6 +1000,11 @@ class PTSMODEL():
         ------
          None
         '''
+
+        if self.line[0] is None:
+            print('ERROR\tsolve_radtrans_line: No lines are specified.')
+            print('ERROR\tsolve_radtrans_line: Check if line is given correctly.')
+            return 0
 
         # read moldata
         _, weight, nlevels, EJ, gJ, J, ntrans, Jup, Jlow, Acoeff, freq, delE =\
