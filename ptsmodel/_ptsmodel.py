@@ -1146,16 +1146,6 @@ class PTSMODEL():
             rho_d_max = np.nanmax(rho_d)
             rho_d_min = rho_d_max*1e-7  # g cm^-3, dynamic range of an order of five
 
-        if len(nrho_g_range) == 0:
-            nrho_g_max = np.nanmax(nrho_g)
-            nrho_g_min = nrho_g_max*1e-7 # dynamic range of an order of five
-        elif len(nrho_g_range) == 2:
-            nrho_g_min, nrho_g_max = nrho_g_range
-        else:
-            print ('ERROR: nrho_g_range must be given as [min value, max value].')
-            nrho_g_max = np.nanmax(nrho_g)
-            nrho_g_min = nrho_g_max*1e-7 # dynamic range of an order of five
-
 
         # dust disk
         fig1 = plt.figure(figsize=figsize)
@@ -1202,6 +1192,17 @@ class PTSMODEL():
         # gas disk
         if self.line[imol] is not None:
             nrho_g = self.nrho_g[self.line[imol]]
+
+            if len(nrho_g_range) == 0:
+                nrho_g_max = np.nanmax(nrho_g)
+                nrho_g_min = nrho_g_max*1e-7 # dynamic range of an order of five
+            elif len(nrho_g_range) == 2:
+                nrho_g_min, nrho_g_max = nrho_g_range
+            else:
+                print ('ERROR: nrho_g_range must be given as [min value, max value].')
+                nrho_g_max = np.nanmax(nrho_g)
+                nrho_g_min = nrho_g_max*1e-7 # dynamic range of an order of five
+
 
             # figure
             fig2 = plt.figure(figsize=figsize)
