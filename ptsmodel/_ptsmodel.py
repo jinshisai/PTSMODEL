@@ -70,9 +70,9 @@ class PTSMODEL():
             print('ERROR\tPTSMODEL: Dimention of line and Xmol must be the same.')
             return
         else:
-            self.Xmol = {self.line[i]: _Xmol[i] for i in range(len(line))}
-        self.rho_g = {self.line[i]: np.array([]) for i in range(len(line))}
-        self.nrho_g = {self.line[i]: np.array([]) for i in range(len(line))}
+            self.Xmol = {self.line[i]: _Xmol[i] for i in range(len(self.line))}
+        self.rho_g = {i: np.array([]) for i in self.line}
+        self.nrho_g = {i: np.array([]) for i in self.line}
 
         if readfiles:
             self.read_model()
