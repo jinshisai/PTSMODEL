@@ -65,7 +65,7 @@ class PTSMODEL():
         else [line]  # line(s)
         _Xmol = Xmol if ( (type(Xmol) == tuple) | (type(Xmol) == list))\
         else [Xmol]  # line(s)
-        if len(_Xmol) != len(line):
+        if len(_Xmol) != len(self.line):
             print(_Xmol, line)
             print('ERROR\tPTSMODEL: Dimention of line and Xmol must be the same.')
             return
