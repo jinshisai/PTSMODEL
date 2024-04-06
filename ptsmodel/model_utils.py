@@ -88,17 +88,21 @@ def read_lamda_moldata(infile):
     Return
     ------
     '''
-    data = pd.read_csv(infile, comment='!', delimiter='\n', header=None)
+    #data = pd.read_csv(infile, comment='!', delimiter='\n', header=None)
+    with open(infile, 'r') as f:
+        data = f.read()
+    data = data.split('\n')
+    data = [i for i in data[:-1] if (len(i) >= 1) & (i[0] != '!')]
 
     # get
     # line name, weight, nlevels
-    line, weight, nlevels = data[0:3][0].values
+    line, weight, nlevels = data[0:3] #[0].values
     weight  = float(weight)
     nlevels = int(nlevels)
 
     # energy on each excitation level
-    elevels = data[3:3+nlevels].values
-    elevels = np.array([ elevels[i][0].split() for i in range(nlevels)])
+    elevels = data[3:3+nlevels] #.values
+    elevels = np.array([ elevels[i].split() for i in range(nlevels)])
     lev, EJ, gJ, J = elevels.T
     lev = np.array([ int(lev[i]) for i in range(nlevels)])
     EJ  = np.array([ float(EJ[i]) for i in range(nlevels)])
@@ -106,12 +110,12 @@ def read_lamda_moldata(infile):
     J   = np.array([ int(J[i]) for i in range(nlevels)])
 
     # number of transition
-    ntrans = data[0][3+nlevels].strip()
+    ntrans = data[3+nlevels].strip()
     ntrans = int(ntrans)
 
     # Einstein A coefficient
-    vtrans = data[3+nlevels+1:3+nlevels+1+ntrans].values
-    vtrans = np.array([vtrans[i][0].split() for i in range(ntrans)])
+    vtrans = data[3+nlevels+1:3+nlevels+1+ntrans] #.values
+    vtrans = np.array([vtrans[i].split() for i in range(ntrans)])
 
     itrans, Jup, Jlow, Acoeff, freq, delE = vtrans.T
     itrans = np.array([ int(itrans[i]) for i in range(ntrans)])
