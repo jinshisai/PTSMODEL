@@ -206,11 +206,11 @@ class PTSMODEL():
         # temperature if exists
         f = 'dust_temperature.dat'
         if os.path.exists(f):
-            data = pd.read_csv(f, delimiter='\n', header=None).values
-            iformat = data[0]
-            imsize  = data[1]
-            ndspc   = data[2]
-            temp    = data[3:]
+            data = pd.read_csv(f, delimiter='\s+', header=None).values
+            iformat = data[0,0]
+            imsize  = data[1,0]
+            ndspc   = data[2,0]
+            temp    = data[3:,0]
 
             retemp = temp.reshape((nphi,ntheta,nr)).T
             self.temp = retemp

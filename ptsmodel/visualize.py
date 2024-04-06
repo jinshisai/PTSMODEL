@@ -306,11 +306,11 @@ def plot_temperature(model, infile='dust_temperature.dat',
 	    print ('ERROR: Cannot find %s'%infile)
 	    return
 
-	data = pd.read_csv(infile, delimiter='\n', header=None).values
-	iformat = data[0]
-	imsize  = data[1]
-	ndspc   = data[2]
-	temp    = data[3:]
+	data = pd.read_csv(infile, delimiter='\s+', header=None).values
+	iformat = data[0,0]
+	imsize  = data[1,0]
+	ndspc   = data[2,0]
+	temp    = data[3:,0]
 
 	#retemp = temp.reshape((nr,ntheta,nphi))
 	retemp = temp.reshape((nphi,ntheta,nr)).T
@@ -343,7 +343,7 @@ def plot_temperature(model, infile='dust_temperature.dat',
 def plot_temperature_xy(model, infile='dust_temperature.dat', fig=None, ax=None,
 	t_range=[], x_range=[], y_range=[], figsize=(8.27, 8.27), cmap='coolwarm',
 	fontsize=14, clevels=[10,20,30,40,50,60],
-	aspect=1., shrink=None, savefig=False, imol=0):
+	aspect=1., shrink=None, savefig=True, imol=0):
 	'''
 	Plot temperature profile.
 
@@ -391,11 +391,11 @@ def plot_temperature_xy(model, infile='dust_temperature.dat', fig=None, ax=None,
 	    print ('ERROR: Cannot find %s'%infile)
 	    return
 
-	data = pd.read_csv(infile, delimiter='\n', header=None).values
-	iformat = data[0]
-	imsize  = data[1]
-	ndspc   = data[2]
-	temp    = data[3:]
+	data = pd.read_csv(infile, delimiter='\s+', header=None).values
+	iformat = data[0,0]
+	imsize  = data[1,0]
+	ndspc   = data[2,0]
+	temp    = data[3:,0]
 
 	#retemp = temp.reshape((nr,ntheta,nphi))
 	retemp = temp.reshape((nphi,ntheta,nr)).T
