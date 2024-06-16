@@ -445,7 +445,7 @@ def plot_temperature_xy(model, infile='dust_temperature.dat', fig=None, ax=None,
 def plot_temperature_rz(model, infile='dust_temperature.dat', fig=None, ax=None,
 	t_range=[], r_range=[], z_range=[], figsize=(8.27, 8.27), cmap='coolwarm',
 	fontsize=14, clevels=[10,20,30,40,50,60],
-	aspect=1., shrink=None, savefig=False, imol=0):
+	aspect=1., shrink=None, savefig=True, imol=0):
 	'''
 	Plot temperature profile.
 

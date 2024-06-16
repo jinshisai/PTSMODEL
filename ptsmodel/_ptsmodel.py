@@ -839,7 +839,7 @@ class PTSMODEL():
 
     # Make input files for RADMC-3D
     def export_to_radmc3d(self, nphot, dustopac='nrmS03',
-        iseed = -5415, scattering_mode=0, 
+        iseed = -5415, scattering_mode=0, ndust_spec = 1,
         wavelengths = True, stars = True, grid = True,
         dust_density = True, dust_opacity = True, 
         gas_velocity = True, ):
@@ -900,7 +900,7 @@ class PTSMODEL():
             with open('dust_density.inp','w+') as f:
                 f.write('1\n')                                  # Format number
                 f.write('%d\n'%(nr*ntheta*nphi))                # Nr of cells
-                f.write('1\n')                                  # Nr of dust species
+                f.write('%i\n'%ndust_spec)                      # Nr of dust species
                 data = self.rho_d.ravel(order='F')              # Create a 1-D view, fortran-style indexing
                 np.savetxt(f,data.T,fmt=['%13.6e'])             # The data
         #
