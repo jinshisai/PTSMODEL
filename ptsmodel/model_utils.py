@@ -58,7 +58,7 @@ def read_temperature(f='dust_temperature.dat'):
 
     # temperature
     if os.path.exists(f):
-        data = pd.read_csv(f, delimiter='\n', header=None).values
+        data = pd.read_csv(f, delimiter='\s+', header=None).values
         iformat = data[0]
         imsize  = data[1]
         ndspc   = data[2]

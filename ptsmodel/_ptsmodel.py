@@ -839,89 +839,97 @@ class PTSMODEL():
 
     # Make input files for RADMC-3D
     def export_to_radmc3d(self, nphot, dustopac='nrmS03',
-        iseed = -5415, scattering_mode=0):
+        iseed = -5415, scattering_mode=0, 
+        wavelengths = True, stars = True, grid = True,
+        dust_density = True, dust_opacity = True, 
+        gas_velocity = True, ):
         nr, ntheta, nphi = self.gridshape
         self.dustopac = dustopac
         ############### Output the model into radmc3d files ############
         # Write the wavelength_micron.inp file
-        #
-        lam1     = 0.1e0
-        lam2     = 7.0e0
-        lam3     = 25.e0
-        lam4     = 1.0e4
-        n12      = 20
-        n23      = 100
-        n34      = 30
-        lam12    = np.logspace(np.log10(lam1),np.log10(lam2),n12,endpoint=False)
-        lam23    = np.logspace(np.log10(lam2),np.log10(lam3),n23,endpoint=False)
-        lam34    = np.logspace(np.log10(lam3),np.log10(lam4),n34,endpoint=True)
-        lam      = np.concatenate([lam12,lam23,lam34])
-        nlam     = lam.size
-        #
-        # Write the wavelength file
-        #
-        with open('wavelength_micron.inp','w+') as f:
-            f.write('%d\n'%(nlam))
-            np.savetxt(f,lam.T,fmt=['%13.6e']) # .T command produce transposed matrix
+        if wavelengths:
+            lam1     = 0.1e0
+            lam2     = 7.0e0
+            lam3     = 25.e0
+            lam4     = 1.0e4
+            n12      = 20
+            n23      = 100
+            n34      = 30
+            lam12    = np.logspace(np.log10(lam1),np.log10(lam2),n12,endpoint=False)
+            lam23    = np.logspace(np.log10(lam2),np.log10(lam3),n23,endpoint=False)
+            lam34    = np.logspace(np.log10(lam3),np.log10(lam4),n34,endpoint=True)
+            lam      = np.concatenate([lam12,lam23,lam34])
+            nlam     = lam.size
+            #
+            # Write the wavelength file
+            #
+            with open('wavelength_micron.inp','w+') as f:
+                f.write('%d\n'%(nlam))
+                np.savetxt(f,lam.T,fmt=['%13.6e']) # .T command produce transposed matrix
         #
         #
         # Write the stars.inp file
         #
-        with open('stars.inp','w+') as f:
-            f.write('2\n')
-            f.write('1 %d\n\n'%(nlam))
-            f.write('%13.6e %13.6e %13.6e %13.6e %13.6e\n\n'%(self.rstar,self.mstar,self.pstar[0],self.pstar[1],self.pstar[2]))
-            np.savetxt(f,lam.T,fmt=['%13.6e'])
-            f.write('\n%13.6e\n'%(-self.tstar))
+        if stars:
+            with open('stars.inp','w+') as f:
+                f.write('2\n')
+                f.write('1 %d\n\n'%(nlam))
+                f.write('%13.6e %13.6e %13.6e %13.6e %13.6e\n\n'%(self.rstar,self.mstar,self.pstar[0],self.pstar[1],self.pstar[2]))
+                np.savetxt(f,lam.T,fmt=['%13.6e'])
+                f.write('\n%13.6e\n'%(-self.tstar))
         #
         # Write the grid file
         #
-        with open('amr_grid.inp','w+') as f:
-            f.write('1\n')                         # iformat
-            f.write('0\n')                         # AMR grid style  (0=regular grid, no AMR)
-            f.write('100\n')                       # Coordinate system: spherical
-            f.write('0\n')                         # gridinfo
-            # Include r,theta, phi coordinates or not
-            incl_rtp = [0 if n_i == 1 else 1 for n_i in [nr, ntheta, nphi]]
-            f.write('%i %i %i\n'%(incl_rtp[0], incl_rtp[1], incl_rtp[2]))
-            f.write('%d %d %d\n'%(nr,ntheta,nphi)) # Size of grid
-            np.savetxt(f,self.ri.T,fmt=['%21.14e'])     # R coordinates (cell walls)
-            np.savetxt(f,self.thetai.T,fmt=['%21.14e']) # Theta coordinates (cell walls)
-            np.savetxt(f,self.phii.T,fmt=['%21.14e'])   # Phi coordinates (cell walls)
+        if grid:
+            with open('amr_grid.inp','w+') as f:
+                f.write('1\n')                         # iformat
+                f.write('0\n')                         # AMR grid style  (0=regular grid, no AMR)
+                f.write('100\n')                       # Coordinate system: spherical
+                f.write('0\n')                         # gridinfo
+                # Include r,theta, phi coordinates or not
+                incl_rtp = [0 if n_i == 1 else 1 for n_i in [nr, ntheta, nphi]]
+                f.write('%i %i %i\n'%(incl_rtp[0], incl_rtp[1], incl_rtp[2]))
+                f.write('%d %d %d\n'%(nr,ntheta,nphi)) # Size of grid
+                np.savetxt(f,self.ri.T,fmt=['%21.14e'])     # R coordinates (cell walls)
+                np.savetxt(f,self.thetai.T,fmt=['%21.14e']) # Theta coordinates (cell walls)
+                np.savetxt(f,self.phii.T,fmt=['%21.14e'])   # Phi coordinates (cell walls)
         #
         # Write the density file
         #
-        with open('dust_density.inp','w+') as f:
-            f.write('1\n')                                  # Format number
-            f.write('%d\n'%(nr*ntheta*nphi))                # Nr of cells
-            f.write('1\n')                                  # Nr of dust species
-            data = self.rho_d.ravel(order='F')              # Create a 1-D view, fortran-style indexing
-            np.savetxt(f,data.T,fmt=['%13.6e'])             # The data
+        if dust_density:
+            with open('dust_density.inp','w+') as f:
+                f.write('1\n')                                  # Format number
+                f.write('%d\n'%(nr*ntheta*nphi))                # Nr of cells
+                f.write('1\n')                                  # Nr of dust species
+                data = self.rho_d.ravel(order='F')              # Create a 1-D view, fortran-style indexing
+                np.savetxt(f,data.T,fmt=['%13.6e'])             # The data
         #
         # Dust opacity control file
         #
-        with open('dustopac.inp','w+') as f:
-            f.write('2               Format number of this file\n')
-            f.write('1               Nr of dust species\n')
-            f.write('============================================================================\n')
-            f.write('1               Way in which this dust species is read\n')
-            f.write('0               0=Thermal grain\n')
-            f.write('%s          Extension of name of dustkappa_***.inp file\n'%dustopac)
-            f.write('----------------------------------------------------------------------------\n')
+        if dust_opacity:
+            with open('dustopac.inp','w+') as f:
+                f.write('2               Format number of this file\n')
+                f.write('1               Nr of dust species\n')
+                f.write('============================================================================\n')
+                f.write('1               Way in which this dust species is read\n')
+                f.write('0               0=Thermal grain\n')
+                f.write('%s          Extension of name of dustkappa_***.inp file\n'%dustopac)
+                f.write('----------------------------------------------------------------------------\n')
         #
         # Write the gas velocity field
         #
-        with open('gas_velocity.inp','w+') as f:
-            f.write('1\n')                        # Format number
-            f.write('%d\n'%(nr*ntheta*nphi))      # Nr of cells
-            wgv = [[[f.write('%13.6e %13.6e %13.6e\n'%(self.vr[ir,itheta,iphi],self.vtheta[ir,itheta,iphi],self.vphi[ir,itheta,iphi]))
-            for ir in range(nr) ] for itheta in range(ntheta)] for iphi in range(nphi)]
-            '''
-            for iphi in range(nphi):
-                for itheta in range(ntheta):
-                    for ir in range(nr):
-                        f.write('%13.6e %13.6e %13.6e\n'%(self.vr[ir,itheta,iphi],self.vtheta[ir,itheta,iphi],self.vphi[ir,itheta,iphi]))
-            '''
+        if gas_velocity:
+            with open('gas_velocity.inp','w+') as f:
+                f.write('1\n')                        # Format number
+                f.write('%d\n'%(nr*ntheta*nphi))      # Nr of cells
+                wgv = [[[f.write('%13.6e %13.6e %13.6e\n'%(self.vr[ir,itheta,iphi],self.vtheta[ir,itheta,iphi],self.vphi[ir,itheta,iphi]))
+                for ir in range(nr) ] for itheta in range(ntheta)] for iphi in range(nphi)]
+                '''
+                for iphi in range(nphi):
+                    for itheta in range(ntheta):
+                        for ir in range(nr):
+                            f.write('%13.6e %13.6e %13.6e\n'%(self.vr[ir,itheta,iphi],self.vtheta[ir,itheta,iphi],self.vphi[ir,itheta,iphi]))
+                '''
         #
         # Write the microturbulence file
         #
