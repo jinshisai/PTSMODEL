@@ -842,7 +842,7 @@ class PTSMODEL():
         iseed = -5415, scattering_mode=0, ndust_spec = 1,
         wavelengths = True, stars = True, grid = True,
         dust_density = True, dust_opacity = True, 
-        gas_velocity = True, ):
+        gas_velocity = True,):
         nr, ntheta, nphi = self.gridshape
         self.dustopac = dustopac
         ############### Output the model into radmc3d files ############
@@ -909,7 +909,7 @@ class PTSMODEL():
         if dust_opacity:
             with open('dustopac.inp','w+') as f:
                 f.write('2               Format number of this file\n')
-                f.write('1               Nr of dust species\n')
+                f.write('%i               Nr of dust species\n'%ndust_spec)
                 f.write('============================================================================\n')
                 f.write('1               Way in which this dust species is read\n')
                 f.write('0               0=Thermal grain\n')
