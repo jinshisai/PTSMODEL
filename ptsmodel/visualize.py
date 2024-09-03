@@ -151,10 +151,12 @@ def dust_density(model, outname = None,
 
 
 def gas_density(model, outname = None, 
-	nrho_range=[], xlim=[], ylim=[],
-	rlim=[], zlim=[],
+	nrho_range = None, xlim = None, ylim = None,
+	rlim = None, zlim = None,
 	figsize=(11.69,8.27), cmap='coolwarm',
-	 fontsize=14, wspace=0.4, hspace=0.2, imol=0):
+	fontsize=14, wspace=0.4, hspace=0.2, imol=0,
+	cbaroptions = ['right', '3%', '3%'], cbarlabel = None,
+	drange = 1.e-5):
 	'''
 	Visualize density distribution as 2-D slices.
 
@@ -189,79 +191,70 @@ def gas_density(model, outname = None,
 	rr, tt, phph = np.meshgrid(ri, thetai, phii, indexing='ij')
 	rxy = rr*np.sin(tt)      # radius in xy-plane, r*sin(theta)
 	zz  = rr*np.cos(tt)      # z, r*cos(theta)
-	#rr     = self.rr
-	#phph   = self.phph
-	#rxy    = self.rxy
-	#zz     = self.zz
-
-	nrho_g = model.nrho_g[model.line[imol]]
-
 	xx = rxy*np.cos(phph)
 	yy = rxy*np.sin(phph)
+	indx_mid = np.argmin(np.abs(theta_c - np.pi*0.5)) # mid-plane
+	# density
+	nrho_g = model.nrho_g[model.line[imol]]
+
 
 	# for plot
 	nrho_g[np.where(nrho_g <= 0.)] = np.nan
-	nrho_range = nrho_range if len(nrho_range) == 2 else [np.nanmin(nrho_g), np.nanmax(nrho_g)]
+	nrho_range = nrho_range if nrho_range is not None \
+	else [np.nanmax(nrho_g) * drange, np.nanmax(nrho_g)]
+	cbarlabel = r'$\rho_\mathrm{dust}\ \mathrm{(g\ cm^{-3})}$' if cbarlabel is None \
+	else cbarlabel
 
-	xlim = xlim if len(xlim) == 2 else [np.nanmin(xx)/au, np.nanmax(xx)/au]
-	ylim = ylim if len(ylim) == 2 else [np.nanmin(yy)/au, np.nanmax(yy)/au]
-	rlim = rlim if len(rlim) == 2 else [0, np.nanmax(rr)/au]
-	zlim = zlim if len(zlim) == 2 else [0, np.nanmax(zz)/au]
-
-
-
-	# gas disk
-	fig2 = plt.figure(figsize=figsize)
-
-	# plot 1; gas number density in r vs z
-	ax3     = fig2.add_subplot(121)
-	divider = make_axes_locatable(ax3)
-	cax3    = divider.append_axes('right', '3%', pad='0%')
-
-	im3   = ax3.pcolormesh(rxy[:,:,nphi//2]/au, zz[:,:,nphi//2]/au, nrho_g[:,:,nphi//2],
-	 cmap=cmap, norm = colors.LogNorm(vmin = nrho_range[0], vmax=nrho_range[1]), rasterized=True)
-	cbar3 = fig2.colorbar(im3,cax=cax3)
-
-	ax3.set_xlabel(r'$r$ (au)')
-	ax3.set_ylabel(r'$z$ (au)')
-	ax3.set_xlim(rlim)
-	ax3.set_ylim(zlim)
-	#cbar3.set_label(r'$n_\mathrm{gas}\ \mathrm{(cm^{-3})}$')
-	ax3.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True, pad=9)
-	ax3.set_aspect(1)
+	xlim = xlim if xlim is not None else [np.nanmin(xx)/au, np.nanmax(xx)/au]
+	ylim = ylim if ylim is not None else [np.nanmin(yy)/au, np.nanmax(yy)/au]
+	rlim = rlim if rlim is not None else [np.nanmin(rr)/au, np.nanmax(rr)/au]
+	zlim = zlim if zlim is not None else [np.nanmin(zz)/au, np.nanmax(zz)/au]
 
 
-	# plot 2; density in r vs phi (xy-plane)
-	ax4     = fig2.add_subplot(122)
-	divider = make_axes_locatable(ax4)
-	cax4    = divider.append_axes('right', '3%', pad='0%')
-
-	indx_mid = np.argmin(np.abs(theta_c - np.pi*0.5)) # mid-plane
-	im4   = ax4.pcolormesh(xx[:,indx_mid,:]/au, yy[:,indx_mid,:]/au, nrho_g[:,indx_mid,:], cmap=cmap,
-	 norm = colors.LogNorm(vmin = nrho_range[0], vmax=nrho_range[1]), rasterized=True)
-
-	cbar4 = fig2.colorbar(im4,cax=cax4)
-	ax4.set_xlabel(r'$x$ (au)')
-	ax4.set_ylabel(r'$y$ (au)')
-	ax4.set_xlim(xlim)
-	ax4.set_ylim(ylim)
-	cbar4.set_label(r'$n_\mathrm{gas}\ \mathrm{(cm^{-3})}$')
-	ax4.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True, pad=9)
-	ax4.set_aspect(1)
-
-
-	fig2.subplots_adjust(wspace=wspace, hspace=hspace)
-	if outname:
-		fig2.savefig(outname + '.pdf', transparent=True)
+	# dust disk
+	fig = plt.figure(figsize=figsize)
+	if nphi <= 1:
+		ax1 = fig.add_subplot(111)
+		cbarlabel1 = cbarlabel
 	else:
-		fig2.savefig('gas_density.pdf',transparent=True)
+		ax1 = fig.add_subplot(121)
+		ax2 = fig.add_subplot(122)
+		cbarlabel1 = ''
+
+	# r-z plot
+	colorplot(rxy[:,:,nphi//2]/au, 
+		zz[:,:,nphi//2]/au, 
+		nrho_g[:,:,nphi//2], ax = ax1,
+		xlim = rlim, ylim = zlim, dlim = nrho_range,
+		cmap = cmap, colorscale = 'log', xlabel = r'$R$ (au)',
+		ylabel = r'$z$ (au)', cbarlabel = cbarlabel1)
+	ax1.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True, pad=9)
+	ax1.set_aspect(1)
+
+	# x-y plot
+	if nphi > 1:
+		colorplot(rxy[:,indx_mid,:]/au, 
+		zz[:,indx_mid,:]/au, 
+		nrho_g[:,indx_mid,:], ax = ax2,
+		xlim = xlim, ylim = ylim, dlim = nrho_range,
+		cmap = cmap, colorscale = 'log', xlabel = r'$x$ (au)',
+		ylabel = r'$y$ (au)', cbarlabel = cbarlabel)
+		ax2.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True, pad=9)
+		ax2.set_aspect(1)
+
+		fig.subplots_adjust(wspace=wspace, hspace=hspace)
+
+	if outname:
+		fig.savefig(outname + '.pdf', transparent=True)
+	else:
+		fig.savefig('gas_density.pdf',transparent=True)
 	plt.close()
 
 
 # plot temperature profile
 def temperature(model, infile='dust_temperature.dat',
 	outname = None,
-	t_range = None, xlim = None, ylim=[], rlim=[], zlim=[], 
+	t_range = None, xlim = None, ylim = None, rlim = None, zlim = None, 
 	figsize=(11.69,8.27), 
 	cmap='coolwarm', fontsize=14, wspace=0.4, hspace=0.2, 
 	cbaroptions = ['right', '3%', '3%'], cbarlabel = None,
@@ -628,6 +621,9 @@ def colorplot(x, y, d,
 	if colorbar:
 		cax, cbar = add_colorbar_toaxis(im, ax, cbarlabel = cbarlabel, 
 			cbaroptions = cbaroptions)
+
+	ax.set_xlim(xlim[0], xlim[1])
+	ax.set_ylim(ylim[0], ylim[1])
 
 	ax.set_xlabel(xlabel)
 	ax.set_ylabel(ylabel)
