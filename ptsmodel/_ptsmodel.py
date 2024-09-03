@@ -672,7 +672,7 @@ class PTSMODEL():
         # for molecules
         for i in self.line:
             if i is not None:
-                _, weight, nlevels, EJ, gJ, J, ntrans, Jup, Jlow, Acoeff, freq, delE = \
+                _, weight, nlevels, EJ, gJ, J, ntrans, trans, Jup, Jlow, Acoeff, freq, delE = \
                 read_lamda_moldata('molecule_'+i+'.inp')
                 self.nrho_g[i] = self.nrho_H2 * self.Xmol[i] # number density of the molecule
                 self.rho_g[i] = self.nrho_g[i] * weight * mp # density of the molecule
