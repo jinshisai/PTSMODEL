@@ -55,7 +55,7 @@ def dust_density(model, outname = None,
 	rlim = None, zlim = None,
 	figsize = (11.69,8.27), cmap='coolwarm',
 	fontsize = 14, wspace = 0.4, hspace = 0.2,
-	cbaroptions = ['right', '3%', '0%'], cbarlabel = None,
+	cbaroptions = ['right', '3%', '3%'], cbarlabel = None,
 	drange = 1.e-5):
 	'''
 	Visualize density distribution as 2-D slices.
@@ -94,7 +94,7 @@ def dust_density(model, outname = None,
 	# Cartesian
 	xx = rxy*np.cos(phph)
 	yy = rxy*np.sin(phph)
-	indx_mid = np.argmin(np.abs(tt[0,:,0] - np.pi*0.5)) # mid-plane
+	indx_mid = np.argmin(np.abs(theta_c - np.pi*0.5)) # mid-plane
 	# density
 	rho_d  = model.rho_d
 
@@ -150,7 +150,8 @@ def dust_density(model, outname = None,
 		fig.savefig('dust_density.pdf', transparent=True)
 
 
-def gas_density(model, outname = None, nrho_range=[], xlim=[], ylim=[],
+def gas_density(model, outname = None, 
+	nrho_range=[], xlim=[], ylim=[],
 	rlim=[], zlim=[],
 	figsize=(11.69,8.27), cmap='coolwarm',
 	 fontsize=14, wspace=0.4, hspace=0.2, imol=0):
@@ -258,10 +259,13 @@ def gas_density(model, outname = None, nrho_range=[], xlim=[], ylim=[],
 
 
 # plot temperature profile
-def plot_temperature(model, infile='dust_temperature.dat',
-	t_range=[], x_range=[], y_range=[], r_range=[], z_range=[], figsize=(11.69,8.27), 
+def temperature(model, infile='dust_temperature.dat',
+	outname = None,
+	t_range = None, xlim = None, ylim=[], rlim=[], zlim=[], 
+	figsize=(11.69,8.27), 
 	cmap='coolwarm', fontsize=14, wspace=0.4, hspace=0.2, 
-	clevels=[10,20,30,40,50,60], aspect=1., shrink=None, imol=0):
+	cbaroptions = ['right', '3%', '3%'], cbarlabel = None,
+	clevels = [10,20,30,40,50,60]):
 	'''
 	Plot temperature profile.
 
@@ -272,7 +276,7 @@ def plot_temperature(model, infile='dust_temperature.dat',
 	if type(model) == ptsmodel.PTSMODEL:
 		pass
 	else:
-		print ("ERROR\tvisualize: input must be PTSMODEL object.")
+		print ("ERROR\ttemperature: input must be PTSMODEL object.")
 
 
 	# setting for figures
@@ -290,16 +294,23 @@ def plot_temperature(model, infile='dust_temperature.dat',
 	thetai = model.thetai
 	phii   = model.phii
 	theta_c = (thetai[0:ntheta] + thetai[1:ntheta+1])*0.5 # cell center
-
+	# Cylindarical
 	rr, tt, phph = np.meshgrid(ri, thetai, phii, indexing='ij')
 	rxy = rr*np.sin(tt)      # radius in xy-plane, r*sin(theta)
 	zz  = rr*np.cos(tt)      # z, r*cos(theta)
-
-	rho_d  = model.rho_d
-	nrho_g = model.nrho_g[model.line[imol]]
-
+	# Cartesian
 	xx = rxy*np.cos(phph)
 	yy = rxy*np.sin(phph)
+	# mid-plane
+	indx_mid = np.argmin(np.abs(theta_c - np.pi*0.5)) # mid-plane
+
+	# for contour plot
+	rr_c, tt_c, phph_c = np.meshgrid(model.r, model.theta, model.phi, indexing='ij')
+	rxy_c = rr_c*np.sin(tt_c)      # radius in xy-plane, r*sin(theta)
+	zz_c  = rr_c*np.cos(tt_c)      # z, r*cos(theta)
+	# Cartesian
+	xx_c = rxy_c*np.cos(phph_c)
+	yy_c = rxy_c*np.sin(phph_c)
 
 
 	# read file
@@ -319,26 +330,62 @@ def plot_temperature(model, infile='dust_temperature.dat',
 	retemp = temp.reshape((nphi,ntheta,nr)).T
 
 
-	# setting for figure
-	r_range = r_range if len(r_range) == 2 else [np.nanmin(rr)/au, np.nanmax(rr)/au]
-	t_range = t_range if len(t_range) == 2 else [0., np.nanmax(temp)]
+	# for plot
+	t_range = t_range if t_range is not None \
+	else [0., np.nanmax(temp)]
+	cbarlabel = r'$T\ \mathrm{(K)}$' if cbarlabel is None \
+	else cbarlabel
+
+	xlim = xlim if xlim is not None else [np.nanmin(xx)/au, np.nanmax(xx)/au]
+	ylim = ylim if ylim is not None else [np.nanmin(yy)/au, np.nanmax(yy)/au]
+	rlim = rlim if rlim is not None else [np.nanmin(rr)/au, np.nanmax(rr)/au]
+	zlim = zlim if zlim is not None else [np.nanmin(zz)/au, np.nanmax(zz)/au]
 
 
-	# figure
+	# plot
 	fig = plt.figure(figsize=figsize)
-	# plot 1: r-z plane
-	ax1 = fig.add_subplot(121)
-	plot_temperature_rz(model, infile=infile, fig=fig, ax=ax1,
-		t_range=t_range, r_range=r_range, z_range=z_range, 
-		cmap=cmap, fontsize=fontsize, clevels=clevels, aspect=aspect, shrink=shrink)
-	# plot 2: x-y plane
-	ax2  = fig.add_subplot(122)
-	plot_temperature_xy(model, infile=infile, fig=fig, ax=ax2,
-		t_range=t_range, x_range=x_range, y_range=y_range, 
-		cmap=cmap, fontsize=fontsize, clevels=clevels, aspect=aspect, shrink=shrink)
+	if nphi <= 1:
+		ax1 = fig.add_subplot(111)
+		cbarlabel1 = cbarlabel
+	else:
+		ax1 = fig.add_subplot(121)
+		ax2 = fig.add_subplot(122)
+		cbarlabel1 = ''
 
-	fig.subplots_adjust(wspace=wspace, hspace=hspace)
-	fig.savefig('dust_temperature.pdf', transparent=True)
+	# r-z plot
+	colorplot(rxy[:,:,nphi//2]/au, 
+		zz[:,:,nphi//2]/au, 
+		retemp[:,:,nphi//2], ax = ax1,
+		xlim = rlim, ylim = zlim, dlim = t_range,
+		cmap = cmap, colorscale = 'linear', xlabel = r'$R$ (au)',
+		ylabel = r'$z$ (au)', cbarlabel = cbarlabel1)
+	ax1.contour(rxy_c[:,:,nphi//2]/au, zz_c[:,:,nphi//2]/au, retemp[:,:,nphi//2], 
+		levels = clevels, colors = 'white', linewidths = 1.)
+	ax1.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True, pad=9)
+	ax1.set_aspect(1)
+
+	# x-y plot
+	if nphi > 1:
+		# color
+		colorplot(rxy[:,indx_mid,:]/au, 
+		zz[:,indx_mid,:]/au, 
+		retemp[:,indx_mid,:], ax = ax2,
+		xlim = xlim, ylim = ylim, dlim = t_range,
+		cmap = cmap, colorscale = 'linear', xlabel = r'$x$ (au)',
+		ylabel = r'$y$ (au)', cbarlabel = cbarlabel)
+		# contour
+		ax2.contour(rxy_c[:,indx_mid,:]/au, zz_c[:,indx_mid,:]/au, retemp[:,indx_mid,:], 
+			levels = clevels, colors = 'white', linewidths = 1.)
+		# ticks
+		ax2.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True, pad=9)
+		ax2.set_aspect(1)
+
+		fig.subplots_adjust(wspace=wspace, hspace=hspace)
+
+	if outname is not None:
+		fig.savefig(outname + '.pdf', transparent = True)
+	else:
+		fig.savefig('dust_temperature.pdf', transparent=True)
 	return fig
 
 

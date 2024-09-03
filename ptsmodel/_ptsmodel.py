@@ -1130,6 +1130,7 @@ class PTSMODEL():
         ri     = self.ri
         thetai = self.thetai
         phii   = self.phii
+        theta_c = self.theta
         # Cylindarical
         rr, tt, phph = np.meshgrid(ri, thetai, phii, indexing='ij')
         rxy = rr*np.sin(tt)      # radius in xy-plane, r*sin(theta)
@@ -1137,8 +1138,7 @@ class PTSMODEL():
         # Certesian
         xx = rxy*np.cos(phph)
         yy = rxy*np.sin(phph)
-        indx_mid = np.argmin(np.abs(tt[0,:,0] - np.pi*0.5)) # mid-plane
-        if indx_mid >= ntheta: indx_mid = ntheta - 1
+        indx_mid = np.argmin(np.abs(theta_c - np.pi*0.5)) # mid-plane
         # dust density
         rho_d  = self.rho_d
 
@@ -1186,9 +1186,9 @@ class PTSMODEL():
             ax2.tick_params(which='both', direction='in', bottom=True, 
                 top=True, left=True, right=True, pad=9)
             ax2.set_aspect(1)
+            fig.subplots_adjust(wspace=wspace, hspace=hspace)
 
         # save figures
-        fig.subplots_adjust(wspace=wspace, hspace=hspace)
         fig.savefig('dust_density.pdf',transparent=True)
         plt.close()
 
@@ -1244,7 +1244,7 @@ class PTSMODEL():
                         top=True, left=True, right=True, pad=9)
                     ax2.set_aspect(1)
 
-                fig.subplots_adjust(wspace=wspace, hspace=hspace)
+                    fig.subplots_adjust(wspace=wspace, hspace=hspace)
                 fig.savefig('gas_density_%s.pdf'%self.line[imol],transparent=True)
                 plt.close()
 
