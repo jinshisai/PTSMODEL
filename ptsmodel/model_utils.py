@@ -125,7 +125,11 @@ def read_lamda_moldata(infile):
     freq   = np.array([ float(freq[i]) for i in range(ntrans)])
     delE   = np.array([ float(delE[i]) for i in range(ntrans)])
 
-    return line, weight, nlevels, EJ, gJ, J, ntrans, Jup, Jlow, Acoeff, freq, delE
+    # transitions
+    trans = [ str(J[ int(Jup[i] - 1)]) + '-' \
+    + str( J[ int(Jlow[i] - 1)]) for i in range(len(itrans))]
+
+    return line, weight, nlevels, EJ, gJ, J, ntrans, trans, Jup, Jlow, Acoeff, freq, delE
 
 
 def image_contsub(line, iline, filehead='image_'):
