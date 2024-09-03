@@ -202,7 +202,7 @@ def gas_density(model, outname = None,
 	nrho_g[np.where(nrho_g <= 0.)] = np.nan
 	nrho_range = nrho_range if nrho_range is not None \
 	else [np.nanmax(nrho_g) * drange, np.nanmax(nrho_g)]
-	cbarlabel = r'$\rho_\mathrm{dust}\ \mathrm{(g\ cm^{-3})}$' if cbarlabel is None \
+	cbarlabel = r'$n_\mathrm{%s}\ \mathrm{(cm^{-3})}$'%model.line[imol] if cbarlabel is None \
 	else cbarlabel
 
 	xlim = xlim if xlim is not None else [np.nanmin(xx)/au, np.nanmax(xx)/au]
