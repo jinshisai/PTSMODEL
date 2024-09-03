@@ -6,6 +6,7 @@ from matplotlib import pyplot as plt
 import matplotlib.colors as colors
 from matplotlib import cm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 import ptsmodel
 
@@ -50,9 +51,12 @@ def change_aspect_ratio(ax, ratio, plottype='linear'):
 
 # functions
 def dust_density(model, outname = None,
-	rho_range=[], xlim=[], ylim=[],
-	figsize=(11.69,8.27), cmap='coolwarm',
-	 fontsize=14, wspace=0.4, hspace=0.2):
+	rho_range = None, xlim = None, ylim = None,
+	rlim = None, zlim = None,
+	figsize = (11.69,8.27), cmap='coolwarm',
+	fontsize = 14, wspace = 0.4, hspace = 0.2,
+	cbaroptions = ['right', '3%', '0%'], cbarlabel = None,
+	drange = 1.e-5):
 	'''
 	Visualize density distribution as 2-D slices.
 
@@ -83,68 +87,67 @@ def dust_density(model, outname = None,
 	thetai = model.thetai
 	phii   = model.phii
 	theta_c = (thetai[0:ntheta] + thetai[1:ntheta+1])*0.5 # cell center
-
+	# cylindarical
 	rr, tt, phph = np.meshgrid(ri, thetai, phii, indexing='ij')
 	rxy = rr*np.sin(tt)      # radius in xy-plane, r*sin(theta)
 	zz  = rr*np.cos(tt)      # z, r*cos(theta)
-	#rr     = self.rr
-	#phph   = self.phph
-	#rxy    = self.rxy
-	#zz     = self.zz
-
-	rho_d  = model.rho_d
-
+	# Cartesian
 	xx = rxy*np.cos(phph)
 	yy = rxy*np.sin(phph)
+	indx_mid = np.argmin(np.abs(tt[0,:,0] - np.pi*0.5)) # mid-plane
+	# density
+	rho_d  = model.rho_d
 
 	# for plot
 	rho_d[np.where(rho_d <= 0.)] = np.nan
-	rho_range = rho_range if len(rho_range) ==2 else [np.nanmin(rho_d), np.nanmax(rho_d)]
+	rho_range = rho_range if rho_range is not None \
+	else [np.nanmax(rho_d) * drange, np.nanmax(rho_d)]
+	cbarlabel = r'$\rho_\mathrm{dust}\ \mathrm{(g\ cm^{-3})}$' if cbarlabel is None \
+	else cbarlabel
 
-	xlim = xlim if len(xlim) == 2 else [np.nanmin(xx)/au, np.nanmax(xx)/au]
-	ylim = ylim if len(ylim) == 2 else [np.nanmin(yy)/au, np.nanmax(yy)/au]
+	xlim = xlim if xlim is not None else [np.nanmin(xx)/au, np.nanmax(xx)/au]
+	ylim = ylim if ylim is not None else [np.nanmin(yy)/au, np.nanmax(yy)/au]
+	rlim = rlim if rlim is not None else [np.nanmin(rr)/au, np.nanmax(rr)/au]
+	zlim = zlim if zlim is not None else [np.nanmin(zz)/au, np.nanmax(zz)/au]
 
 
 	# dust disk
-	fig1 = plt.figure(figsize=figsize)
+	fig = plt.figure(figsize=figsize)
+	if nphi <= 1:
+		ax1 = fig.add_subplot(111)
+		cbarlabel1 = cbarlabel
+	else:
+		ax1 = fig.add_subplot(121)
+		ax2 = fig.add_subplot(122)
+		cbarlabel1 = ''
 
-	# plot 1; density in r vs z
-	ax1     = fig1.add_subplot(121)
-	divider = make_axes_locatable(ax1)
-	cax1    = divider.append_axes('right', '3%', pad='0%')
-
-	im1   = ax1.pcolormesh(rxy[:,:,nphi//2]/au, zz[:,:,nphi//2]/au, rho_d[:,:,nphi//2], cmap=cmap,
-	 norm = colors.LogNorm(vmin = rho_range[0], vmax=rho_range[1]), rasterized=True)
-	cbar1 = fig1.colorbar(im1, cax=cax1)
-
-	ax1.set_xlabel(r'$r$ (au)')
-	ax1.set_ylabel(r'$z$ (au)')
+	# r-z plot
+	colorplot(rxy[:,:,nphi//2]/au, 
+		zz[:,:,nphi//2]/au, 
+		rho_d[:,:,nphi//2], ax = ax1,
+		xlim = rlim, ylim = zlim, dlim = rho_range,
+		cmap = cmap, colorscale = 'log', xlabel = r'$R$ (au)',
+		ylabel = r'$z$ (au)', cbarlabel = cbarlabel1)
 	ax1.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True, pad=9)
 	ax1.set_aspect(1)
 
-
-	# plot 2; density in r vs phi (xy-plane)
-	ax2     = fig1.add_subplot(122)
-	divider = make_axes_locatable(ax2)
-	cax2    = divider.append_axes('right', '3%', pad='0%')
-
-	indx_mid = np.argmin(np.abs(theta_c - np.pi*0.5)) # mid-plane
-	im2   = ax2.pcolormesh(xx[:,indx_mid,:]/au, yy[:,indx_mid,:]/au, rho_d[:,indx_mid,:],
-	 cmap=cmap, norm = colors.LogNorm(vmin = rho_range[0], vmax=rho_range[1]), rasterized=True)
-	cbar2 = fig1.colorbar(im2,cax=cax2)
-
-	ax2.set_xlabel(r'$x$ (au)')
-	ax2.set_ylabel(r'$y$ (au)')
-	cbar2.set_label(r'$\rho_\mathrm{dust}\ \mathrm{(g\ cm^{-3})}$')
+	# x-y plot
+	if nphi > 1:
+		colorplot(rxy[:,indx_mid,:]/au, 
+		zz[:,indx_mid,:]/au, 
+		rho_d[:,indx_mid,:], ax = ax2,
+		xlim = xlim, ylim = ylim, dlim = rho_range,
+		cmap = cmap, colorscale = 'log', xlabel = r'$x$ (au)',
+		ylabel = r'$y$ (au)', cbarlabel = cbarlabel)
 	ax2.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True, pad=9)
 	ax2.set_aspect(1)
 
 	# save figures
-	fig1.subplots_adjust(wspace=wspace, hspace=hspace)
+	fig.subplots_adjust(wspace=wspace, hspace=hspace)
 	if outname:
-		fig1.savefig(outname + '.pdf', transparent=True)
+		fig.savefig(outname + '.pdf', transparent=True)
 	else:
-		fig1.savefig('dust_density.pdf',transparent=True)
+		fig.savefig('dust_density.pdf', transparent=True)
 
 
 def gas_density(model, outname = None, nrho_range=[], xlim=[], ylim=[],
@@ -544,6 +547,97 @@ def plot_temperature_rz(model, infile='dust_temperature.dat', fig=None, ax=None,
 	if savefig:
 		fig.savefig('dust_temperature_rz.pdf', transparent=True)
 	return fig
+
+
+def colorplot(x, y, d, 
+	xlim = None, ylim = None, dlim = None,
+	fig = None, ax = None, iaxis = 0, figsize = None,
+	colorscale = 'linear', cmap = 'coolwarm', norm = None,
+	colorbar = True, cbaroptions = ['right', '3%', '0%'],
+	cbarlabel = '', xlabel = '(au)', ylabel = '(au)'):
+	# figure
+	if (fig is not None) & (ax is None):
+		ax = fig.axes[iaxis]
+	elif ax is not None:
+		pass
+	else:
+		fig = plt.figure(figsize)
+		ax = fig.add_subplot(111)
+
+	# setting for figure
+	xlim = xlim if xlim is not None else [np.nanmin(x), np.nanmax(x)]
+	ylim = ylim if ylim is not None else [np.nanmin(y), np.nanmax(y)]
+	dlim = dlim if dlim is not None else [np.nanmin(d), np.nanmax(d)]
+
+	if norm is None:
+		if colorscale == 'log':
+			norm = colors.LogNorm(vmin = dlim[0], vmax=dlim[1])
+		else:
+			norm = colors.Normalize(vmin=dlim[0], vmax=dlim[1])
+
+
+	im = ax.pcolormesh(x, y, d,
+		norm = norm, cmap = cmap, rasterized = True)
+	if colorbar:
+		cax, cbar = add_colorbar_toaxis(im, ax, cbarlabel = cbarlabel, 
+			cbaroptions = cbaroptions)
+
+	ax.set_xlabel(xlabel)
+	ax.set_ylabel(ylabel)
+	return im, ax
+
+
+
+def add_colorbar_toaxis(
+	cim, ax,
+    cbarlabel: str='', 
+    cbaroptions: list = ['right', '3%', '0%'],
+    ticks: list = None,
+    tickcolor: str = 'k', 
+    axiscolor: str = 'k', 
+    labelcolor: str = 'k'):
+    # parameter
+    orientations = {
+    'right': 'vertical',
+    'left': 'vertical',
+    'top': 'horizontal',
+    'bottom': 'horizontal'}
+
+    # setting for a color bar
+    if len(cbaroptions) == 3:
+        cbar_loc, cbar_wd, cbar_pad = cbaroptions
+    elif len(cbaroptions) == 4:
+        cbar_loc, cbar_wd, cbar_pad, cbarlabel = cbaroptions
+    else:
+        print('WARNING\tadd_colorbar_toaxis: cbaroptions must have three or four elements. \
+        Input is ignored.')
+    cbar_loc, cbar_wd, cbar_pad = cbaroptions
+
+    # inset axes
+    if cbar_loc == 'right':
+        width = cbar_wd
+        height = '100%'
+        bbox_to_anchor = (1. + float(cbar_pad.strip('%'))*0.01, 0., 1., 1.)
+    elif cbar_loc == 'top':
+        width = '100%'
+        height = cbar_wd
+        bbox_to_anchor = (0., 1. + float(cbar_pad.strip('%'))*0.01, 1., 1.)
+    else:
+        print("ERROR\tadd_colorbar: cbar_loc must be 'right' or 'top'.")
+        return 0
+    cax = inset_axes(ax,
+        width = width,
+        height = height,
+        loc = 'lower left',
+        bbox_to_anchor = bbox_to_anchor,
+        bbox_transform = ax.transAxes,
+        borderpad = 0.)
+    # add a color bar
+    cbar = plt.colorbar(cim, cax=cax, ticks=ticks, 
+        orientation=orientations[cbar_loc], ticklocation=cbar_loc)
+    cbar.set_label(cbarlabel)
+    return cax, cbar
+
 
 
 def gasdensity3d_faceon(model, step=1,

@@ -17,6 +17,7 @@ from astropy import constants, units
 
 from .model_utils import read_lamda_moldata, image_contsub
 from . import model_utils
+from . import visualize
 
 # constants (in cgs)
 
@@ -58,8 +59,8 @@ class PTSMODEL():
         self.disk     = 0 # if model disk
         self.envelope = 0 # if model envelope
         self.cavity   = 0 # if model cavity
-        self.rho_disk = np.array([]) # H2 density of disk
-        self.rho_env  = np.array([]) # H2 density of envelope
+        self.rho_disk = np.array([]) # Total gas density of disk
+        self.rho_env  = np.array([]) # Total gas density of envelope
         self.turbulence = False # turbulence
         self.line = line if ( (type(line) == tuple) | (type(line) == list))\
         else [line]  # line(s)
@@ -625,14 +626,14 @@ class PTSMODEL():
         self.rho_cavity   = rho_cavity
 
 
-    def rho_model(self, mu=2.37, gtod_ratio = 100., disk_height=1):
+    def rho_model(self, mu=2.8, gtod_ratio = 100., disk_height=1):
         '''
         Make a density model
 
         Args:
-            gtod_ratio: gas-to-dust mass ratio
-            mu: mean molecular weight
-            Xconv: Abandance of a molecule you want to model.
+            gtod_ratio (float): Gas-to-dust mass ratio
+            mu (float): Mean molecular weight per hydrogen molecule.
+                        Default 2.8 (Kauffmann et al. 2008)
         '''
         rho = np.zeros(self.gridshape)
 
@@ -662,19 +663,19 @@ class PTSMODEL():
             rho[self.where_cavity] = self.rho_cavity
 
         # density of the total gas (H2 gas) & dust
-        rho_h2 = rho
-        rho_d  = rho_h2/gtod_ratio
+        rho_d = rho / gtod_ratio
         # save
-        self.rho_H2 = rho_h2
-        self.rho_d  = rho/gtod_ratio
+        self.rho_total = rho # total gas mass
+        self.nrho_H2 = rho / mu / mp # H2 number column density
+        self.rho_d  = rho_d
 
         # for molecules
         for i in self.line:
             if i is not None:
                 _, weight, nlevels, EJ, gJ, J, ntrans, Jup, Jlow, Acoeff, freq, delE = \
                 read_lamda_moldata('molecule_'+i+'.inp')
-                self.rho_g[i]  = rho_h2*self.Xmol[i]
-                self.nrho_g[i] = self.rho_g[i]/(weight*mp)
+                self.nrho_g[i] = self.nrho_H2 * self.Xmol[i] # number density of the molecule
+                self.rho_g[i] = self.nrho_g[i] * weight * mp # density of the molecule
 
 
     # Velocity distributions
@@ -1096,9 +1097,11 @@ class PTSMODEL():
 
     # plot for check
     # plot density
-    def show_density(self, rho_d_range=[], nrho_g_range=[],
-        figsize=(11.69,8.27), cmap='coolwarm', 
-        fontsize=14, wspace=0.4, hspace=0.2, imol=0):
+    def show_density(self, rho_d_range = None, nrho_g_range = None,
+        xlim = None, ylim = None, rlim = None, zlim = None,
+        figsize = (11.69,8.27), cmap='coolwarm', 
+        fontsize = 14, wspace=0.4, hspace=0.2, imol = -1,
+        drange = 1.e-5):
         '''
         Visualize density distribution as 2-D slices.
 
@@ -1108,11 +1111,9 @@ class PTSMODEL():
         '''
         # modules
         import matplotlib.pyplot as plt
-        from mpl_toolkits.mplot3d import axes3d
-        from matplotlib import pyplot as plt
+        from mpl_toolkits.axes_grid1.inset_locator import inset_axes
         from matplotlib import cm
         import matplotlib.colors as colors
-        import mpl_toolkits.axes_grid1
 
         # setting for figures
         #plt.rcParams['font.family'] ='Arial'    # font (Times New Roman, Helvetica, Arial)
@@ -1129,132 +1130,128 @@ class PTSMODEL():
         ri     = self.ri
         thetai = self.thetai
         phii   = self.phii
-
+        # Cylindarical
         rr, tt, phph = np.meshgrid(ri, thetai, phii, indexing='ij')
         rxy = rr*np.sin(tt)      # radius in xy-plane, r*sin(theta)
         zz  = rr*np.cos(tt)      # z, r*cos(theta)
-        #rr     = self.rr
-        #phph   = self.phph
-        #rxy    = self.rxy
-        #zz     = self.zz
-
-        rho_d  = self.rho_d
-
+        # Certesian
         xx = rxy*np.cos(phph)
         yy = rxy*np.sin(phph)
+        indx_mid = np.argmin(np.abs(tt[0,:,0] - np.pi*0.5)) # mid-plane
+        if indx_mid >= ntheta: indx_mid = ntheta - 1
+        # dust density
+        rho_d  = self.rho_d
 
         # parameters
-        if len(rho_d_range) == 0:
-            rho_d_max = np.nanmax(rho_d)
-            rho_d_min = rho_d_max*1e-7  # g cm^-3, dynamic range of an order of five
-        elif len(rho_d_range) == 2:
-            rho_d_min, rho_d_max = rho_d_range
-        else:
-            print ('ERROR: rho_d_range must be given as [min value, max value].')
-            rho_d_max = np.nanmax(rho_d)
-            rho_d_min = rho_d_max*1e-7  # g cm^-3, dynamic range of an order of five
-
+        rho_d_range = rho_d_range if rho_d_range is not None \
+        else [np.nanmax(rho_d) * drange, np.nanmax(rho_d)]
+        norm = colors.LogNorm(vmin = rho_d_range[0], vmax = rho_d_range[1])
+        cbarlabel = r'$\rho_\mathrm{dust}\ \mathrm{(g\ cm^{-3})}$'
+        # plot lim
+        xlim = xlim if xlim is not None else [np.nanmin(xx)/au, np.nanmax(xx)/au]
+        ylim = ylim if ylim is not None else [np.nanmin(yy)/au, np.nanmax(yy)/au]
+        rlim = rlim if rlim is not None else [np.nanmin(rr)/au, np.nanmax(rr)/au]
+        zlim = zlim if zlim is not None else [np.nanmin(zz)/au, np.nanmax(zz)/au]
 
         # dust disk
-        fig1 = plt.figure(figsize=figsize)
+        fig = plt.figure(figsize=figsize)
+        if nphi <= 1:
+            ax1 = fig.add_subplot(111)
+            cbarlabel1 = cbarlabel
+        else:
+            ax1 = fig.add_subplot(121)
+            ax2 = fig.add_subplot(122)
+            cbarlabel1 = ''
 
-        # plot 1; density in r vs z
-        ax1     = fig1.add_subplot(121)
-        divider = mpl_toolkits.axes_grid1.make_axes_locatable(ax1)
-        cax1    = divider.append_axes('right', '3%', pad='0%')
-
-        im1   = ax1.pcolormesh(rxy[:,:,nphi//2]/au, zz[:,:,nphi//2]/au, rho_d[:,:,nphi//2], cmap=cmap,
-         norm = colors.LogNorm(vmin = rho_d_min, vmax=rho_d_max), rasterized=True)
-        cbar1 = fig1.colorbar(im1, cax=cax1)
-
-        ax1.set_xlabel('Radius (au)')
-        ax1.set_ylabel('z (au)')
-        #cbar1.set_label(r'$\rho_\mathrm{dust}\ \mathrm{(g\ cm^{-3})}$')
-        ax1.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True, pad=9)
+        # r-z plot
+        visualize.colorplot(
+            rxy[:,:,nphi//2]/au, 
+            zz[:,:,nphi//2]/au, 
+            rho_d[:,:,nphi//2], ax = ax1,
+            xlim = rlim, ylim = zlim, dlim = rho_d_range,
+            cmap = cmap, norm = norm, xlabel = r'$R$ (au)',
+            ylabel = r'$z$ (au)', cbarlabel = cbarlabel1,)
+        ax1.tick_params(which='both', direction='in', bottom=True, top=True, 
+            left=True, right=True, pad=9)
         ax1.set_aspect(1)
 
-
-        # plot 2; density in r vs phi (xy-plane)
-        ax2     = fig1.add_subplot(122)
-        divider = mpl_toolkits.axes_grid1.make_axes_locatable(ax2)
-        cax2    = divider.append_axes('right', '3%', pad='0%')
-
-        indx_mid = np.argmin(np.abs(self.tt[0,:,0] - np.pi*0.5)) # mid-plane
-        im2   = ax2.pcolormesh(xx[:,indx_mid,:]/au, yy[:,indx_mid,:]/au, rho_d[:,indx_mid,:],
-         cmap=cmap, norm = colors.LogNorm(vmin = rho_d_min, vmax=rho_d_max), rasterized=True)
-        #ax2.scatter(xx[:,-1,:]/au, yy[:,-1,:]/au, marker='x', s=5., color='k')
-        cbar2 = fig1.colorbar(im2,cax=cax2)
-
-        ax2.set_xlabel('x (au)')
-        ax2.set_ylabel('y (au)')
-        cbar2.set_label(r'$\rho_\mathrm{dust}\ \mathrm{(g\ cm^{-3})}$')
-        ax2.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True, pad=9)
-        ax2.set_aspect(1)
+        # x-y plot
+        if nphi > 1:
+            visualize.colorplot(xx[:,indx_mid,:]/au, 
+                yy[:,indx_mid,:]/au, 
+                rho_d[:,indx_mid,:], ax = ax2,
+                xlim = xlim, ylim = ylim, dlim = rho_d_range,
+                cmap = cmap, norm = norm, xlabel = r'$x$ (au)',
+                ylabel = r'$y$ (au)', cbarlabel = cbarlabel)
+            ax2.tick_params(which='both', direction='in', bottom=True, 
+                top=True, left=True, right=True, pad=9)
+            ax2.set_aspect(1)
 
         # save figures
-        fig1.subplots_adjust(wspace=wspace, hspace=hspace)
-        fig1.savefig('dust_density.pdf',transparent=True)
-        #plt.close()
+        fig.subplots_adjust(wspace=wspace, hspace=hspace)
+        fig.savefig('dust_density.pdf',transparent=True)
+        plt.close()
 
 
         # gas disk
-        if self.line[imol] is not None:
-            nrho_g = self.nrho_g[self.line[imol]]
+        if self.line[0] is not None:
+            if imol >= 0:
+                imols = [imol]
+            else: # go for all
+                imols = range(0, len(self.line))
 
-            if len(nrho_g_range) == 0:
-                nrho_g_max = np.nanmax(nrho_g)
-                nrho_g_min = nrho_g_max*1e-7 # dynamic range of an order of five
-            elif len(nrho_g_range) == 2:
-                nrho_g_min, nrho_g_max = nrho_g_range
-            else:
-                print ('ERROR: nrho_g_range must be given as [min value, max value].')
-                nrho_g_max = np.nanmax(nrho_g)
-                nrho_g_min = nrho_g_max*1e-7 # dynamic range of an order of five
+            for imol in imols:
+                nrho_g = self.nrho_g[self.line[imol]]
+                nrho_g_range = nrho_g_range if nrho_g_range is not None \
+                else [np.nanmax(nrho_g) * drange, np.nanmax(nrho_g)]
+                norm = colors.LogNorm(vmin = nrho_g_range[0], vmax = nrho_g_range[1])
 
+                cbarlabel = r'$n_\mathrm{%s}\ \mathrm{(cm^{-3})}$'%self.line[imol]
 
-            # figure
-            fig2 = plt.figure(figsize=figsize)
+                # figure
+                fig = plt.figure(figsize=figsize)
+                if nphi <= 1:
+                    ax1 = fig.add_subplot(111)
+                    cbarlabel1 = cbarlabel
+                else:
+                    ax1 = fig.add_subplot(121)
+                    ax2 = fig.add_subplot(122)
+                    cbarlabel1 = ''
 
-            # plot 1; gas number density in r vs z
-            ax3     = fig2.add_subplot(121)
-            divider = mpl_toolkits.axes_grid1.make_axes_locatable(ax3)
-            cax3    = divider.append_axes('right', '3%', pad='0%')
+                # r-z plot
+                visualize.colorplot(
+                    rxy[:,:,nphi//2]/au, 
+                    zz[:,:,nphi//2]/au, 
+                    nrho_g[:,:,nphi//2], ax = ax1,
+                    xlim = rlim, ylim = zlim, dlim = nrho_g_range,
+                    cmap = cmap, norm = norm, xlabel = r'$R$ (au)',
+                    ylabel = r'$z$ (au)', cbarlabel = cbarlabel1)
+                ax1.tick_params(which='both', direction='in', bottom=True, top=True, 
+                    left=True, right=True, pad=9)
+                ax1.set_aspect(1)
 
-            im3   = ax3.pcolormesh(rxy[:,:,nphi//2]/au, zz[:,:,nphi//2]/au, nrho_g[:,:,nphi//2],
-             cmap=cmap, norm = colors.LogNorm(vmin = nrho_g_min, vmax=nrho_g_max), rasterized=True)
-            cbar3 = fig2.colorbar(im3,cax=cax3)
+                # x-y plot
+                if nphi > 1:
+                    visualize.colorplot(
+                        xx[:,indx_mid,:]/au, 
+                        yy[:,indx_mid,:]/au, 
+                        nrho_g[:,indx_mid,:],
+                        ax = ax2,
+                        xlim = xlim, ylim = ylim, dlim = nrho_g_range,
+                        cmap = cmap, norm = norm, xlabel = r'$x$ (au)',
+                        ylabel = r'$y$ (au)', cbarlabel = cbarlabel)
+                    ax2.tick_params(which='both', direction='in', bottom=True, 
+                        top=True, left=True, right=True, pad=9)
+                    ax2.set_aspect(1)
 
-            ax3.set_xlabel('radius (au)')
-            ax3.set_ylabel('z (au)')
-            #cbar3.set_label(r'$n_\mathrm{gas}\ \mathrm{(cm^{-3})}$')
-            ax3.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True, pad=9)
-            ax3.set_aspect(1)
-
-
-            # plot 2; density in r vs phi (xy-plane)
-            ax4     = fig2.add_subplot(122)
-            divider = mpl_toolkits.axes_grid1.make_axes_locatable(ax4)
-            cax4    = divider.append_axes('right', '3%', pad='0%')
-
-            im4   = ax4.pcolormesh(xx[:,indx_mid,:]/au, yy[:,indx_mid,:]/au, nrho_g[:,indx_mid,:], cmap=cmap,
-             norm = colors.LogNorm(vmin = nrho_g_min, vmax=nrho_g_max), rasterized=True)
-            #im4   = ax4.pcolor(rr[:,-1,:]/au, phph[:,-1,:], nrho_gas[:,-1,:], cmap=cm.coolwarm, norm = colors.LogNorm(vmin = 10., vmax=1.e4))
-
-            cbar4 = fig2.colorbar(im4,cax=cax4)
-            ax4.set_xlabel('x (au)')
-            ax4.set_ylabel('y (au)')
-            cbar4.set_label(r'$n_\mathrm{gas}\ \mathrm{(cm^{-3})}$')
-            ax4.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True, pad=9)
-            ax4.set_aspect(1)
-
-            fig2.subplots_adjust(wspace=wspace, hspace=hspace)
-            fig2.savefig('gas_density.pdf',transparent=True)
-            plt.close()
+                fig.subplots_adjust(wspace=wspace, hspace=hspace)
+                fig.savefig('gas_density_%s.pdf'%self.line[imol],transparent=True)
+                plt.close()
 
 
     # plot velocity field
-    def show_vfield(self, nrho_g_range=[], r_range=[], step=1,
-     figsize=(11.69,8.27), vscale=3e2, width=10. ,cmap='coolwarm',
+    def show_vfield(self, nrho_g_range = [], r_range=[], step=1,
+        figsize=(11.69,8.27), vscale=3e2, width=10. ,cmap='coolwarm',
       fontsize=14, wspace=0.4, hspace=0.2, imol=0):
         '''
         Visualize density distribution as 2-D slices.

@@ -43,16 +43,16 @@ def read_grid(f='amr_grid.inp', outpixel='center'):
         return rc, thetac, phic
 
 # read dust_temperature.dat
-def read_temperature(f='dust_temperature.dat'):
+def read_temperature(f='dust_temperature.dat', fgrid = 'amr_grid.inp'):
     '''
     Read a RADMC-3D temperature file.
     '''
     # grid
-    if os.path.exists('amr_grid.inp') == False:
+    if os.path.exists(fgrid) == False:
         print ('ERROR\tread_temperature: amr_grid.inp cannot be found.')
         return
     else:
-        nrtp = np.genfromtxt('amr_grid.inp', max_rows=1, skip_header=5, 
+        nrtp = np.genfromtxt(fgrid, max_rows=1, skip_header=5, 
             delimiter=' ',dtype=int)
         nr, ntheta, nphi = nrtp
 
