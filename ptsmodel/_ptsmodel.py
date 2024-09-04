@@ -121,8 +121,7 @@ class PTSMODEL():
         phic     = 0.5 * ( phii[0:nphi] + phii[1:nphi+1] )
 
         # get grid
-        qq           = np.meshgrid(rc,thetac,phic,indexing='ij') # (r, theta, phi) in the spherical coordinate
-        rr, tt, phph = qq
+        rr, tt, phph = np.meshgrid(rc,thetac,phic,indexing='ij') # (r, theta, phi) in the spherical coordinate
         zr           = 0.5*np.pi - tt # angle from z axis (90deg - theta)
         rxy          = rr*np.sin(tt)  # r in xy-plane
         zz           = rr*np.cos(tt)  # z in xyz coordinate
@@ -135,12 +134,12 @@ class PTSMODEL():
         self.theta     = thetac
         self.phi       = phic
         self.gridshape = arraysize
-        self.grid      = qq
         self.rr        = rr
         self.tt        = tt
         self.phph      = phph
         self.rxy       = rxy
         self.zz        = zz
+        self.rri, self.tti, self.phphi = np.meshgrid(ri,thetai,phii,indexing='ij')
 
 
         # density
@@ -255,13 +254,8 @@ class PTSMODEL():
         self.theta     = thetac
         self.phi       = phic
 
-        # make a grid
-        qq = np.meshgrid(rc,thetac,phic,indexing='ij')
-
-        # in spherical coordinates
-        rr   = qq[0]              # r in spherical coordinate
-        tt   = qq[1]              # theta in spherical coordinate
-        phph = qq[2]              # phi in spherical coordinate
+        # make a grid in spherical coordinates
+        rr, tt, phph = np.meshgrid(rc,thetac,phic,indexing='ij')
 
         # cylindrical coordinates (for disk)
         rxy  = rr*np.sin(tt)      # radius in xy-plane, r*sin(theta)
@@ -269,12 +263,13 @@ class PTSMODEL():
 
         # save
         self.gridshape = rr.shape
-        self.grid      = qq
         self.rr        = rr
         self.tt        = tt
         self.phph      = phph
         self.rxy       = rxy
         self.zz        = zz
+        # cell border
+        self.rri, self.tti, self.phphi = np.meshgrid(ri,thetai,phii,indexing='ij')
 
         return
 
@@ -680,7 +675,7 @@ class PTSMODEL():
 
     # Velocity distributions
     def vfield_model(self):
-        rr, tt, phph = self.grid
+        rr, tt, phph = self.rr, self.tt, self.phph
         rxy = self.rxy
         zz  = self.zz
 

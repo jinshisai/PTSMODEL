@@ -251,6 +251,85 @@ def gas_density(model, outname = None,
 	plt.close()
 
 
+def density_profile(model, 
+	outname = None, 
+	rho_range = None, rlim = None,
+	figsize=(11.69,8.27),
+	fontsize=14, wspace=0.4, hspace=0.2, imol=0,
+	cbaroptions = ['right', '3%', '3%'], cbarlabel = None,
+	drange = 1.e-5, kind = 'gas'):
+	'''
+	Visualize density distribution as 2-D slices.
+
+	Args:
+	    rho_d_range:
+	    nrho_g_range:
+	'''
+
+	# check input
+	if type(model) == ptsmodel.PTSMODEL:
+		pass
+	else:
+		print ("ERROR\tvisualize: input must be PTSMODEL object.")
+
+	# setting for figures
+	#plt.rcParams['font.family'] ='Arial'    # font (Times New Roman, Helvetica, Arial)
+	plt.rcParams['xtick.direction'] = 'in'  # directions of x ticks ('in'), ('out') or ('inout')
+	plt.rcParams['ytick.direction'] = 'in'  # directions of y ticks ('in'), ('out') or ('inout')
+	plt.rcParams['font.size'] = fontsize    # fontsize
+
+	# read model
+	# dimension
+	nr, ntheta, nphi = model.gridshape
+
+	# grid
+	r = model.r
+	theta = model.theta
+	indx_mid = np.argmin(np.abs(theta - np.pi*0.5)) # mid-plane
+	# density
+	if kind == 'gas':
+		rho = model.nrho_g[model.line[imol]][:,indx_mid, nphi//2]
+		ylabel = r'$n_\mathrm{%s}\ \mathrm{(cm^{-3})}$'%model.line[imol]
+	elif kind == 'dust':
+		rho = model.rho_d[:,indx_mid, nphi//2]
+		ylabel = r'$\rho_\mathrm{dust}\ \mathrm{(g\ cm^{-3})}$'
+	else:
+		print('WARNING\tdensity_profile: input type is wrong.')
+		print('WARNING\tdensity_profile: type must be gas or dust.')
+		print('WARNING\tdensity_profile: ignore input and plot gas density profile.')
+		rho = model.nrho_g[model.line[imol]][:,indx_mid, nphi//2]
+		kind = 'gas'
+
+
+	# for plot
+	rho_range = rho_range if rho_range is not None \
+	else [np.nanmax(rho) * drange, np.nanmax(rho) * 1.2]
+
+	rlim = rlim if rlim is not None else [np.nanmin(r) / au, np.nanmax(r) / au]
+
+	# dust disk
+	fig = plt.figure(figsize=figsize)
+	ax1 = fig.add_subplot(111)
+
+	# r-z plot
+	ax1.plot(r/au, rho, color = 'k', ls= '-', lw = 1.)
+	ax1.set_xscale('log')
+	ax1.set_yscale('log')
+	ax1.set_xlim(rlim[0], rlim[1])
+	ax1.set_ylim(rho_range[0], rho_range[1])
+	ax1.set_xlabel(r'$R$ (au)')
+	ax1.set_ylabel(ylabel)
+	ax1.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True, pad=9)
+	change_aspect_ratio(ax1, 1, plottype = 'loglog')
+
+	if outname:
+		fig.savefig(outname + '.pdf', transparent=True)
+	else:
+		fig.savefig(kind + '_density_profile_%s.pdf'%model.line[imol],transparent=True)
+	#plt.show()
+	plt.close()
+
+
 # plot temperature profile
 def temperature(model, infile='dust_temperature.dat',
 	outname = None,
