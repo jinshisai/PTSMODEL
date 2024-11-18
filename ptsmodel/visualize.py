@@ -233,8 +233,9 @@ def gas_density(model, outname = None,
 
 	# x-y plot
 	if nphi > 1:
-		colorplot(rxy[:,indx_mid,:]/au, 
-		zz[:,indx_mid,:]/au, 
+		print(indx_mid, nrho_g[:,indx_mid,:].ravel())
+		colorplot(xx[:,indx_mid,:]/au, 
+		yy[:,indx_mid,:]/au, 
 		nrho_g[:,indx_mid,:], ax = ax2,
 		xlim = xlim, ylim = ylim, dlim = nrho_range,
 		cmap = cmap, colorscale = 'log', xlabel = r'$x$ (au)',

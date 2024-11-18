@@ -161,11 +161,6 @@ class PTSMODEL():
             print ("WARNING\t: numberdens_*.inp doesn't exist. Put zero for gas density.")
             nrho_g = np.zeros(arraysize)
             rho_g  = np.zeros(arraysize)
-        elif len(files) == 1:
-            f      = files[0]
-            dread  = pd.read_table(f, skiprows=2, comment='#', encoding='utf-8',header=None)
-            nrho_g = dread.values
-            nrho_g = np.reshape(nrho_g.T,arraysize,order='F')
         else:
             self.line = [files[i].split('_')[-1].split('.')[0] for i in range(len(files))]
             self.nrho_g = { i: np.array([]) for i in self.line}
