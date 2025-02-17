@@ -86,7 +86,7 @@ class PTSMODEL():
                 thetamin=thetamin, thetamax=thetamax, phimin=phimin, phimax=phimax)
 
 
-    def read_model(self):
+    def read_model(self, modeldir = ''):
         '''
         Reconstuct model by reading model files.
 
@@ -98,7 +98,7 @@ class PTSMODEL():
 
         # reading file
         # grid
-        f = 'amr_grid.inp'
+        f = modeldir + 'amr_grid.inp'
         if os.path.exists(f) == False:
             print ('ERROR\tread_model: amr_grid.inp cannot be found.')
             return
@@ -144,7 +144,7 @@ class PTSMODEL():
 
         # density
         # dust denisty [g/cm3]
-        f = 'dust_density.inp'
+        f = modeldir + 'dust_density.inp'
         if os.path.exists(f) == False:
             print ('WARNING\t: dust_density.inp cannot be found. Put zero for dust density.')
             rho_d = np.zeros(arraysize)
@@ -156,7 +156,7 @@ class PTSMODEL():
 
 
         # gas number denisty [/cm3]
-        files = glob.glob('numberdens_*.inp')
+        files = glob.glob(modeldir + 'numberdens_*.inp')
         if len(files) == 0:
             print ("WARNING\t: numberdens_*.inp doesn't exist. Put zero for gas density.")
             nrho_g = np.zeros(arraysize)
@@ -179,7 +179,7 @@ class PTSMODEL():
 
 
         # gas velocity [cm/s]
-        f = 'gas_velocity.inp'
+        f = modeldir + 'gas_velocity.inp'
         if os.path.exists(f) == False:
             print ("WARNING\t: gas_velocity.inp doesn't exist. Put zero for gas v-field.")
             vr     = np.zeros(arraysize)
@@ -199,7 +199,7 @@ class PTSMODEL():
 
 
         # temperature if exists
-        f = 'dust_temperature.dat'
+        f = modeldir + 'dust_temperature.dat'
         if os.path.exists(f):
             data = pd.read_csv(f, delimiter='\s+', header=None).values
             iformat = data[0,0]

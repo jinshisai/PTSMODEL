@@ -616,7 +616,7 @@ def plot_temperature_rz(model, infile='dust_temperature.dat', fig=None, ax=None,
 	    print ('ERROR: Cannot find %s'%infile)
 	    return
 
-	data = pd.read_csv(infile, delimiter='\n', header=None).values
+	data = pd.read_csv(infile, delimiter='\s+', header=None).values
 	iformat = data[0]
 	imsize  = data[1]
 	ndspc   = data[2]
