@@ -451,8 +451,12 @@ def export_radmc_tofits(outname, f='image.out', obsinfo=None, restfreq=None, hdr
             hdr['BUNIT'] = ('Jy/pixel', 'Brightness (pixel) unit')
     else:
         # in cgs --> Jy/pixel
-        outimage = IcgsTOjpp(outimage,pixsize[0]/au,pixsize[1]/au,dist)
-        hdr['BUNIT'] = ('Jy/pixel', 'Brightness (pixel) unit')
+        if units == 'original':
+            hdr['BUNIT'] = ''
+            pass
+        else:
+            outimage = IcgsTOjpp(outimage,pixsize[0]/au,pixsize[1]/au,dist)
+            hdr['BUNIT'] = ('Jy/pixel', 'Brightness (pixel) unit')
 
 
     # Jy/beam --> Tb

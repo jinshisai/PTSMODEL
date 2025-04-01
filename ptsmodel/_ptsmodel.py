@@ -15,7 +15,7 @@ from astropy import constants, units
 #import matplotlib
 #matplotlib.use('TkAgg')
 
-from .model_utils import read_lamda_moldata, image_contsub
+from .model_utils import read_grid, read_lamda_moldata, image_contsub, AMRGrid
 from . import model_utils
 from . import visualize
 
@@ -103,44 +103,41 @@ class PTSMODEL():
             print ('ERROR\tread_model: amr_grid.inp cannot be found.')
             return
 
-        # dimension
-        nrtp             = np.genfromtxt(f, max_rows=1, skip_header=5, delimiter=' ',dtype=int)
-        nr, ntheta, nphi = nrtp
-        arraysize        = (nr,ntheta,nphi)
-        self.nr     = nr
-        self.ntheta = ntheta
-        self.nphi   = nphi
+        grid = AMRGrid(f)
 
-        dread            = pd.read_csv(f, skiprows=6, comment='#', encoding='utf-8',header=None)
-        coords           = dread.values
-        ri, thetai, phii = np.split(coords,[nr+1,nr+ntheta+2])
+        # Coordinate system
+        if grid.coordsystem < 100:
+            # Cartesian
+            self.nx, self.ny, self.nz = grid.nx, grid.ny, grid.nz
+            self.gridshape = (self.nx, self.ny, self.nz)
+            self.xi = grid.xi
+            self.yi = grid.yi
+            self.zi = grid.zi
+            self.x = grid.x
+            self.y = grid.y
+            self.z = grid.z
 
-        # centers of each cell
-        rc       = 0.5 * ( ri[0:nr] + ri[1:nr+1] )                 # centers of each cell
-        thetac   = 0.5 * ( thetai[0:ntheta] + thetai[1:ntheta+1] )
-        phic     = 0.5 * ( phii[0:nphi] + phii[1:nphi+1] )
+            self.xx, self.yy, self.zz = np.meshgrid(self.x, self.y, self.z, indexing = 'ij')
+            self.xxi, self.yyi, self.zzi = np.meshgrid(self.xi, self.yi, self.zi, indexing = 'ij')
+        elif 100 <= grid.coordsystem < 200:
+            # Spherical
+            self.nr     = grid.nr
+            self.ntheta = grid.ntheta
+            self.nphi   = grid.nphi
+            self.gridshape = (self.nr, self.ntheta, self.nphi)
+            self.ri        = grid.ri
+            self.thetai    = grid.thetai
+            self.phii      = grid.phii
+            self.r         = grid.r
+            self.theta     = grid.theta
+            self.phi       = grid.phi
 
-        # get grid
-        rr, tt, phph = np.meshgrid(rc,thetac,phic,indexing='ij') # (r, theta, phi) in the spherical coordinate
-        zr           = 0.5*np.pi - tt # angle from z axis (90deg - theta)
-        rxy          = rr*np.sin(tt)  # r in xy-plane
-        zz           = rr*np.cos(tt)  # z in xyz coordinate
+            self.rr, self.tt, self.phph = np.meshgrid(self.r, self.theta, self.phi, indexing='ij')
+            self.rxy = self.rr * np.sin(self.tt)
+            self.zz = self.zz * np.cos(self.tt)
+            self.rri, self.tti, self.phphi = np.meshgrid(self.ri,self.thetai,self.phii,indexing='ij')
 
-        # save
-        self.ri        = ri
-        self.thetai    = thetai
-        self.phii      = phii
-        self.r         = rc
-        self.theta     = thetac
-        self.phi       = phic
-        self.gridshape = arraysize
-        self.rr        = rr
-        self.tt        = tt
-        self.phph      = phph
-        self.rxy       = rxy
-        self.zz        = zz
-        self.rri, self.tti, self.phphi = np.meshgrid(ri,thetai,phii,indexing='ij')
-
+        arraysize = self.gridshape
 
         # density
         # dust denisty [g/cm3]
@@ -186,7 +183,9 @@ class PTSMODEL():
             vtheta = np.zeros(arraysize)
             vphi   = np.zeros(arraysize)
         else:
-            dread = pd.read_csv(f, skiprows=2, comment='#', encoding='utf-8',header=None, delimiter=' ',parse_dates=True, keep_date_col=True, skipinitialspace=True)
+            dread = pd.read_csv(f, skiprows=2, 
+                comment='#', encoding='utf-8', header=None, 
+                sep = '\s+', parse_dates=True, keep_date_col=True, skipinitialspace=True)
             vrtp             = dread.values
             vr, vtheta, vphi = vrtp.T
             vr               = np.reshape(vr,arraysize,order='F')
@@ -207,7 +206,7 @@ class PTSMODEL():
             ndspc   = data[2,0]
             temp    = data[3:,0]
 
-            retemp = temp.reshape((nphi,ntheta,nr)).T
+            retemp = temp.reshape(arraysize).T
             self.temp = retemp
         else:
             self.temp = None

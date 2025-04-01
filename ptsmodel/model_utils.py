@@ -5,6 +5,97 @@ import pandas as pd
 
 ### functions
 
+class AMRGrid(object):
+    """docstring for AMRGrid"""
+    def __init__(self, f = 'amr_grid.inp'):
+        super(AMRGrid, self).__init__()
+        self.fgrid = f
+
+        # grid
+        if os.path.exists(f) == False:
+            print ('ERROR\tAMRGrid: amr_grid.inp cannot be found.')
+            return 0
+
+        # format
+        iformat, gridstyle, coordsys, gridinfo = np.genfromtxt(f, max_rows=4, delimiter='\n',dtype=int)
+        incl_x, incl_y, incl_z = np.genfromtxt(f, max_rows=1, skip_header=4, delimiter=' ',dtype=int)
+        self.iformat = iformat
+        self.gridstyle = gridstyle
+        self.coordsystem = coordsys
+        self.gridinfo = gridinfo
+        self.incl_x, self.incl_y, self.incl_z = incl_x, incl_y, incl_z
+        
+        if gridstyle != 0:
+            print('ERROR\tAMRGrid: gridstyle != 0 is found.')
+            print('ERROR\tAMRGrid: Currently only regular grid is supported.')
+            return 0
+
+        # read grid
+        if coordsys < 100:
+            # Cartesian
+
+            # dimension
+            nx, ny, nz = np.genfromtxt(f, max_rows=1, skip_header=5, delimiter=' ',dtype=int)
+            arraysize = (nx,ny,nz)
+
+
+            dread            = pd.read_csv(f, skiprows=6, comment='#', 
+                encoding='utf-8', header=None, dtype=float, sep = '\s+')
+            coords = dread.values
+            xi, yi, zi = coords #np.split(coords,[nx+1,nx+ny+2])
+
+            # centers of each cell
+            xc = 0.5 * ( xi[0:nx] + xi[1:nx+1] ) # centers of each cell
+            yc = 0.5 * ( yi[0:ny] + yi[1:ny+1] )
+            zc = 0.5 * ( zi[0:nz] + zi[1:nz+1] )
+
+            # save
+            self.nx, self.ny, self.nz = nx, ny, nz
+            self.xi = xi
+            self.yi = yi
+            self.zi = zi
+            self.x = xc
+            self.y = yc
+            self.z = zc
+
+        elif 100 <= coordsys < 200:
+            # spherical
+            # dimension
+            nrtp             = np.genfromtxt(f, max_rows=1, skip_header=5, delimiter=' ',dtype=int)
+            nr, ntheta, nphi = nrtp
+            arraysize        = (nr,ntheta,nphi)
+
+            dread            = pd.read_csv(f, skiprows=6, comment='#', encoding='utf-8',header=None)
+            coords           = dread.values
+            ri, thetai, phii = np.split(coords,[nr+1,nr+ntheta+2])
+
+            # centers of each cell
+            rc       = 0.5 * ( ri[0:nr] + ri[1:nr+1] )                 # centers of each cell
+            thetac   = 0.5 * ( thetai[0:ntheta] + thetai[1:ntheta+1] )
+            phic     = 0.5 * ( phii[0:nphi] + phii[1:nphi+1] )
+
+            # save
+            self.nr, self.ntheta, self.nphi = nr, ntheta, nphi
+            self.ri        = ri
+            self.thetai    = thetai
+            self.phii      = phii
+            self.r         = rc
+            self.theta     = thetac
+            self.phi       = phic
+
+            # get grid
+            #qq           = np.meshgrid(rc,thetac,phic,indexing='ij') # (r, theta, phi) in the spherical coordinate
+            #rr, tt, phph = qq
+            #zr           = 0.5*np.pi - tt # angle from z axis (90deg - theta)
+            #rxy          = rr*np.sin(tt)  # r in xy-plane
+            #zz           = rr*np.cos(tt)  # z in xyz coordinate
+
+        else:
+            print('ERROR\tread_grid: Currently no support for coordsystem >= 200.')
+            print('ERROR\tread_grid: Check you input of coordsystem.')
+            return 0
+
+
 # read
 def read_grid(f='amr_grid.inp', outpixel='center'):
     # grid
@@ -12,35 +103,72 @@ def read_grid(f='amr_grid.inp', outpixel='center'):
         print ('ERROR\tread_model: amr_grid.inp cannot be found.')
         return 0
 
-    # dimension
-    nrtp             = np.genfromtxt(f, max_rows=1, skip_header=5, delimiter=' ',dtype=int)
-    nr, ntheta, nphi = nrtp
-    arraysize        = (nr,ntheta,nphi)
 
-    dread            = pd.read_csv(f, skiprows=6, comment='#', encoding='utf-8',header=None)
-    coords           = dread.values
-    ri, thetai, phii = np.split(coords,[nr+1,nr+ntheta+2])
+    # format
+    iformat, grid_style, coordsys, gridinfo = np.genfromtxt(f, max_rows=4, delimiter='\n',dtype=int)
+    incl_x, incl_y, incl_z = np.genfromtxt(f, max_rows=1, skip_header=4, delimiter=' ',dtype=int)
 
-    # centers of each cell
-    rc       = 0.5 * ( ri[0:nr] + ri[1:nr+1] )                 # centers of each cell
-    thetac   = 0.5 * ( thetai[0:ntheta] + thetai[1:ntheta+1] )
-    phic     = 0.5 * ( phii[0:nphi] + phii[1:nphi+1] )
+    if coordsys < 100:
+        # Cartesian
 
-    # get grid
-    #qq           = np.meshgrid(rc,thetac,phic,indexing='ij') # (r, theta, phi) in the spherical coordinate
-    #rr, tt, phph = qq
-    #zr           = 0.5*np.pi - tt # angle from z axis (90deg - theta)
-    #rxy          = rr*np.sin(tt)  # r in xy-plane
-    #zz           = rr*np.cos(tt)  # z in xyz coordinate
+        # dimension
+        nxyz             = np.genfromtxt(f, max_rows=1, skip_header=5, delimiter=' ',dtype=int)
+        nx, ny, nz = nxyz
+        arraysize        = (nx,ny,nz)
 
-    if outpixel == 'center':
-        return rc, thetac, phic
-    elif outpixel == 'edge':
-        return ri, thetai, phii
+        dread            = pd.read_csv(f, skiprows=6, comment='#', encoding='utf-8',header=None)
+        coords           = dread.values
+        xi, yi, zi = np.split(coords,[nx+1,nx+ny+2])
+
+        # centers of each cell
+        xc = 0.5 * ( xi[0:nx] + xi[1:nx+1] ) # centers of each cell
+        yc = 0.5 * ( yi[0:ny] + yi[1:ny+1] )
+        zc = 0.5 * ( zi[0:nz] + zi[1:nz+1] )
+
+        if outpixel == 'center':
+            return xc, yc, zc
+        elif outpixel == 'edge':
+            return xi, yi, zi
+        else:
+            print('WARNING\tread_grid: outpixel must be center or edge.')
+            print('WARNING\tread_grid: Ignore input value and return pixel centers.')
+            return xc, yc, zc
+    elif 100 <= coordsys < 200:
+        # spherical
+        # dimension
+        nrtp             = np.genfromtxt(f, max_rows=1, skip_header=5, delimiter=' ',dtype=int)
+        nr, ntheta, nphi = nrtp
+        arraysize        = (nr,ntheta,nphi)
+
+        dread            = pd.read_csv(f, skiprows=6, comment='#', encoding='utf-8',header=None)
+        coords           = dread.values
+        ri, thetai, phii = np.split(coords,[nr+1,nr+ntheta+2])
+
+        # centers of each cell
+        rc       = 0.5 * ( ri[0:nr] + ri[1:nr+1] )                 # centers of each cell
+        thetac   = 0.5 * ( thetai[0:ntheta] + thetai[1:ntheta+1] )
+        phic     = 0.5 * ( phii[0:nphi] + phii[1:nphi+1] )
+
+        # get grid
+        #qq           = np.meshgrid(rc,thetac,phic,indexing='ij') # (r, theta, phi) in the spherical coordinate
+        #rr, tt, phph = qq
+        #zr           = 0.5*np.pi - tt # angle from z axis (90deg - theta)
+        #rxy          = rr*np.sin(tt)  # r in xy-plane
+        #zz           = rr*np.cos(tt)  # z in xyz coordinate
+
+        if outpixel == 'center':
+            return rc, thetac, phic
+        elif outpixel == 'edge':
+            return ri, thetai, phii
+        else:
+            print('WARNING\tread_grid: outpixel must be center or edge.')
+            print('WARNING\tread_grid: Ignore input value and return pixel centers.')
+            return rc, thetac, phic
     else:
-        print('WARNING\tread_grid: outpixel must be center or edge.')
-        print('WARNING\tread_grid: Ignore input value and return pixel centers.')
-        return rc, thetac, phic
+        print('ERROR\tread_grid: Currently no support for coordsystem >= 200.')
+        print('ERROR\tread_grid: Check you input of coordsystem.')
+        return 0
+
 
 # read dust_temperature.dat
 def read_temperature(f='dust_temperature.dat', fgrid = 'amr_grid.inp'):
@@ -70,11 +198,13 @@ def read_temperature(f='dust_temperature.dat', fgrid = 'amr_grid.inp'):
         print ('Found no temperature file.')
         return
 
+
 def write_temperature(temp, f='dust_temperature.dat', overwrite=False):
     '''
     Write out xxx_temperature.dat file for RADMC-3D by hand.
     '''
     #retemp
+
 
 # read LAMDA file
 def read_lamda_moldata(infile):
