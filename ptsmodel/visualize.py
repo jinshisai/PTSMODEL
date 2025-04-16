@@ -133,8 +133,8 @@ def dust_density(model, outname = None,
 
 	# x-y plot
 	if nphi > 1:
-		colorplot(rxy[:,indx_mid,:]/au, 
-		zz[:,indx_mid,:]/au, 
+		colorplot(xx[:,indx_mid,:]/au, 
+		yy[:,indx_mid,:]/au, 
 		rho_d[:,indx_mid,:], ax = ax2,
 		xlim = xlim, ylim = ylim, dlim = rho_range,
 		cmap = cmap, colorscale = 'log', xlabel = r'$x$ (au)',
@@ -233,7 +233,7 @@ def gas_density(model, outname = None,
 
 	# x-y plot
 	if nphi > 1:
-		print(indx_mid, nrho_g[:,indx_mid,:].ravel())
+		#print(indx_mid, nrho_g[:,indx_mid,:].ravel())
 		colorplot(xx[:,indx_mid,:]/au, 
 		yy[:,indx_mid,:]/au, 
 		nrho_g[:,indx_mid,:], ax = ax2,

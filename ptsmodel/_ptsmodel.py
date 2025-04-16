@@ -980,7 +980,7 @@ class PTSMODEL():
 
     def solve_radtrans_line(self, npix, iline, sizeau,
         width_spw, nchan, pa, inc, imolspec=1, vkms=0., 
-        contsub=True):
+        phi = 0., contsub=True,):
         '''
         Solve radiative transfer for line with RADMC3D.
 
@@ -1009,9 +1009,9 @@ class PTSMODEL():
         read_lamda_moldata('molecule_'+self.line[imolspec-1]+'.inp')
         restfreq = freq[iline-1]*1e9 # rest frequency (Hz)
 
-        run_radmc = 'radmc3d image imolspec %i npix %i phi 0 iline %i \
+        run_radmc = 'radmc3d image imolspec %i npix %i phi %.2f iline %i \
         sizeau %.f widthkms %.2f vkms %.2f linenlam %i posang %.2f \
-        incl %.2f'%(imolspec, npix, iline, sizeau, width_spw, vkms, nchan, pa, inc)
+        incl %.2f'%(imolspec, npix, phi, iline, sizeau, width_spw, vkms, nchan, pa, inc)
         print ('Solve radiative transfer.')
         print (run_radmc)
         os.system(run_radmc)
