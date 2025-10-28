@@ -134,7 +134,7 @@ class PTSMODEL():
 
             self.rr, self.tt, self.phph = np.meshgrid(self.r, self.theta, self.phi, indexing='ij')
             self.rxy = self.rr * np.sin(self.tt)
-            self.zz = self.zz * np.cos(self.tt)
+            self.zz = self.rr * np.cos(self.tt)
             self.rri, self.tti, self.phphi = np.meshgrid(self.ri,self.thetai,self.phii,indexing='ij')
 
         arraysize = self.gridshape
@@ -668,7 +668,7 @@ class PTSMODEL():
 
 
     # Velocity distributions
-    def vfield_model(self):
+    def vfield_model(self, pterm = False):
         rr, tt, phph = self.rr, self.tt, self.phph
         rxy = self.rxy
         zz  = self.zz
@@ -1565,8 +1565,7 @@ def Vkep(radius, Mstar):
     radius: radius [cm]
     Mstar: central stellar mass [g]
     '''
-    Vkep = np.sqrt(Ggrav*Mstar/radius)
-    return Vkep
+    return np.sqrt(Ggrav*Mstar/radius)
 
 
 # Vrotation
@@ -1590,6 +1589,7 @@ def v_steadydisk_2d(rxy, mstar):
 
     return vr, vtheta, vphi
 
+
 def v_steadydisk(rxy, zz, mstar):
     # v-field of the steady disk
     vr     = np.zeros(rxy.shape)
@@ -1597,6 +1597,24 @@ def v_steadydisk(rxy, zz, mstar):
     vphi   = Vkep(rxy, mstar) * (1. + (zz/rxy)**2.)**(-3./4.)
 
     return vr, vtheta, vphi
+
+
+def vrot_ssdisk(r, ms, T, rc, gamma, q,
+    z = 0., pterm = True, mu = 2.34):
+    '''
+    The pressure gradient term will be analytically calculated
+    '''
+    if pterm:
+        cs2 = kb * T / mu / mH
+        vkep2 = Vkep(r, ms,)**2. * (1. + (z/r)**2.)**(-3./2.)
+        vrot2 = vkep2 - cs2 * ((2.-gamma) * (r/rc)**(2.-gamma) + q + gamma)
+        #plt.scatter(r.ravel()[::100]/auTOcm, np.sqrt(vkep2.ravel()[::100]) * 1e-5)
+        #plt.scatter(r.ravel()[::100]/auTOcm, np.sqrt(vrot2.ravel()[::100]) * 1e-5)
+        #plt.show()
+        #plt.close()
+        return np.sqrt(vrot2)
+    else:
+        return Vkep(r, ms,) * (1. + (z/r)**2.)**(-3./4.)
 
 
 # Infall velocity

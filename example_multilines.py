@@ -36,6 +36,7 @@ clight = 2.99792458e10   # light speed [cm s^-1]
 # give a list or set parameters & name here
 lines = ['co', 'c18o']
 Xmols = [1.e-4, 1.e-7]
+iline = 2 # J=2--1 for both
 # model name
 modeldir   = 'run_disk'
 modelname  = 'l1527_diskmodel'
@@ -116,15 +117,7 @@ vmax     = 5                       # maximum velocity to be imaged
 vrange   = np.array([vmin,vmax])   # velocity range
 nchan    = 32                      # channel number
 width_spw = 5                      # +/- 5 km/s
-iline    = 2                       # J=2--1
 npix     = 512                     # pixel size of image
-# ilines are now variable
-
-# frequency --> wave length
-#freqrange      = restfreq*(1. - vrange*1.e5/clight)
-#lambdarange    = clight/freqrange       # in cm
-#lambdarange    = lambdarange*1.e-2*1.e6 # cm --> micron
-#lammin, lammax = lambdarange
 
 
 
@@ -200,12 +193,19 @@ model_i.rho_model(mu, gtod_ratio, disk_height=2)
 model_i.vfield_model()
 
 # visualize
-model_i.show_density()
-model_i.show_vfield(r_range=[10*au, 100*au])
-visualize.gas_density(model_i, outname='gas_density_zoom', nrho_range=[1e-1, 1e8],
-	 xlim=[-100, 100], ylim=[-100, 100], rlim=[0,100], zlim=[0,100],
-	 figsize=(11.69,8.27), cmap='coolwarm',
-	 fontsize=14, wspace=0.4, hspace=0.2)
+print('Plot model..')
+visualize.dust_density(model, rlim = [0.4, 2e2],
+    xlim=[-200., 200.], ylim=[-200., 200.], zlim=[0., 40.])
+visualize.gas_density(model, rlim = [0.4, 2e2],
+    xlim=[-200., 200.], ylim=[-200., 200.], zlim=[0., 40.])
+visualize.plot_temperature_xy(model,
+    x_range=[-200., 200.], y_range=[-200., 200.],
+    t_range = [0, 120.])
+visualize.plot_temperature_rz(model,
+    r_range=[1., 200.], z_range=[0., 20.], savefig = True,
+    t_range = [0, 120.])
+
+# export to RADMC-3D format
 model_i.export_to_radmc3d(nphot, dustopac, iseed)
 
 
@@ -221,7 +221,7 @@ for i, line in enumerate(lines):
 	 nchan, pa, inc, imolspec=i+1, contsub=True)
 
 	# export to fits
-	_, weight, nlevels, EJ, gJ, J, ntrans, Jup, Jlow, Acoeff, freq, delE = \
+	_, weight, nlevels, EJ, gJ, J, ntrans, trans, Jup, Jlow, Acoeff, freq, delE = \
 	read_lamda_moldata('molecule_'+line+'.inp')
 	restfreq = freq[iline-1]*1e9 # rest frequency (Hz)
 	for ext in ['', '_cont', '_contsub']:
