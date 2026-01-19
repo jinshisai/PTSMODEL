@@ -139,8 +139,8 @@ def dust_density(model, outname = None,
 		xlim = xlim, ylim = ylim, dlim = rho_range,
 		cmap = cmap, colorscale = 'log', xlabel = r'$x$ (au)',
 		ylabel = r'$y$ (au)', cbarlabel = cbarlabel)
-	ax2.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True, pad=9)
-	ax2.set_aspect(1)
+		ax2.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True, pad=9)
+		ax2.set_aspect(1)
 
 	# save figures
 	fig.subplots_adjust(wspace=wspace, hspace=hspace)

@@ -909,17 +909,24 @@ class PTSMODEL():
         # Write the gas velocity field
         #
         if gas_velocity:
-            with open('gas_velocity.inp','w+') as f:
-                f.write('1\n')                        # Format number
-                f.write('%d\n'%(nr*ntheta*nphi))      # Nr of cells
-                wgv = [[[f.write('%13.6e %13.6e %13.6e\n'%(self.vr[ir,itheta,iphi],self.vtheta[ir,itheta,iphi],self.vphi[ir,itheta,iphi]))
-                for ir in range(nr) ] for itheta in range(ntheta)] for iphi in range(nphi)]
-                '''
-                for iphi in range(nphi):
-                    for itheta in range(ntheta):
-                        for ir in range(nr):
-                            f.write('%13.6e %13.6e %13.6e\n'%(self.vr[ir,itheta,iphi],self.vtheta[ir,itheta,iphi],self.vphi[ir,itheta,iphi]))
-                '''
+            #with open('gas_velocity.inp','w+') as f:
+            #    f.write('1\n')                        # Format number
+            #    f.write('%d\n'%(nr*ntheta*nphi))      # Nr of cells
+            #    wgv = [[[f.write('%13.6e %13.6e %13.6e\n'%(self.vr[ir,itheta,iphi],self.vtheta[ir,itheta,iphi],self.vphi[ir,itheta,iphi]))
+            #    for ir in range(nr) ] for itheta in range(ntheta)] for iphi in range(nphi)]
+            # faster version
+            ncell = nr * ntheta * nphi
+            vr_1d = vr.ravel(order = 'F')
+            vtheta_1d = vtheta.ravel(order = 'F')
+            vphi_1d = vphi.ravel(order = 'F')
+            data = np.column_stack((vr_1d, vtheta_1d, vphi_1d))
+            np.savetxt(
+                "gas_velocity.inp",
+                data,
+                fmt="%13.6e %13.6e %13.6e",
+                header=f"1\n{ncell}",
+                comments="",  # IMPORTANT: prevents "# " in header
+            )
         #
         # Write the microturbulence file
         #
