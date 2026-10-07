@@ -916,9 +916,9 @@ class PTSMODEL():
             #    for ir in range(nr) ] for itheta in range(ntheta)] for iphi in range(nphi)]
             # faster version
             ncell = nr * ntheta * nphi
-            vr_1d = vr.ravel(order = 'F')
-            vtheta_1d = vtheta.ravel(order = 'F')
-            vphi_1d = vphi.ravel(order = 'F')
+            vr_1d = self.vr.ravel(order = 'F')
+            vtheta_1d = self.vtheta.ravel(order = 'F')
+            vphi_1d = self.vphi.ravel(order = 'F')
             data = np.column_stack((vr_1d, vtheta_1d, vphi_1d))
             np.savetxt(
                 "gas_velocity.inp",
