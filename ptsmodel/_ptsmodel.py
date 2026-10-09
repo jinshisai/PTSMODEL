@@ -183,9 +183,9 @@ class PTSMODEL():
             vtheta = np.zeros(arraysize)
             vphi   = np.zeros(arraysize)
         else:
-            dread = pd.read_csv(f, skiprows=2, 
-                comment='#', encoding='utf-8', header=None, 
-                sep = '\s+', parse_dates=True, keep_date_col=True, skipinitialspace=True)
+            dread = pd.read_csv(f, skiprows=2,
+                comment='#', encoding='utf-8', header=None,
+                sep = '\s+', parse_dates=True, skipinitialspace=True)
             vrtp             = dread.values
             vr, vtheta, vphi = vrtp.T
             vr               = np.reshape(vr,arraysize,order='F')
