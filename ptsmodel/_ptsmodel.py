@@ -831,7 +831,7 @@ class PTSMODEL():
     def export_to_radmc3d(self, nphot, dustopac='nrmS03',
         iseed = -5415, scattering_mode=0, ndust_spec = 1,
         wavelengths = True, stars = True, grid = True,
-        dust_density = True, dust_opacity = True, 
+        dust_density = True, dust_opacity = True,
         gas_velocity = True,):
         nr, ntheta, nphi = self.gridshape
         self.dustopac = dustopac
@@ -986,7 +986,7 @@ class PTSMODEL():
 
 
     def solve_radtrans_line(self, npix, iline, sizeau,
-        width_spw, nchan, pa, inc, imolspec=1, vkms=0., 
+        width_spw, nchan, pa, inc, imolspec=1, vkms=0.,
         phi = 0., contsub=True,):
         '''
         Solve radiative transfer for line with RADMC3D.
@@ -1161,25 +1161,25 @@ class PTSMODEL():
 
         # r-z plot
         visualize.colorplot(
-            rxy[:,:,nphi//2]/au, 
-            zz[:,:,nphi//2]/au, 
+            rxy[:,:,nphi//2]/au,
+            zz[:,:,nphi//2]/au,
             rho_d[:,:,nphi//2], ax = ax1,
             xlim = rlim, ylim = zlim, dlim = rho_d_range,
             cmap = cmap, norm = norm, xlabel = r'$R$ (au)',
             ylabel = r'$z$ (au)', cbarlabel = cbarlabel1,)
-        ax1.tick_params(which='both', direction='in', bottom=True, top=True, 
+        ax1.tick_params(which='both', direction='in', bottom=True, top=True,
             left=True, right=True, pad=9)
         ax1.set_aspect(1)
 
         # x-y plot
         if nphi > 1:
-            visualize.colorplot(xx[:,indx_mid,:]/au, 
-                yy[:,indx_mid,:]/au, 
+            visualize.colorplot(xx[:,indx_mid,:]/au,
+                yy[:,indx_mid,:]/au,
                 rho_d[:,indx_mid,:], ax = ax2,
                 xlim = xlim, ylim = ylim, dlim = rho_d_range,
                 cmap = cmap, norm = norm, xlabel = r'$x$ (au)',
                 ylabel = r'$y$ (au)', cbarlabel = cbarlabel)
-            ax2.tick_params(which='both', direction='in', bottom=True, 
+            ax2.tick_params(which='both', direction='in', bottom=True,
                 top=True, left=True, right=True, pad=9)
             ax2.set_aspect(1)
             fig.subplots_adjust(wspace=wspace, hspace=hspace)
@@ -1216,27 +1216,27 @@ class PTSMODEL():
 
                 # r-z plot
                 visualize.colorplot(
-                    rxy[:,:,nphi//2]/au, 
-                    zz[:,:,nphi//2]/au, 
+                    rxy[:,:,nphi//2]/au,
+                    zz[:,:,nphi//2]/au,
                     nrho_g[:,:,nphi//2], ax = ax1,
                     xlim = rlim, ylim = zlim, dlim = nrho_g_range,
                     cmap = cmap, norm = norm, xlabel = r'$R$ (au)',
                     ylabel = r'$z$ (au)', cbarlabel = cbarlabel1)
-                ax1.tick_params(which='both', direction='in', bottom=True, top=True, 
+                ax1.tick_params(which='both', direction='in', bottom=True, top=True,
                     left=True, right=True, pad=9)
                 ax1.set_aspect(1)
 
                 # x-y plot
                 if nphi > 1:
                     visualize.colorplot(
-                        xx[:,indx_mid,:]/au, 
-                        yy[:,indx_mid,:]/au, 
+                        xx[:,indx_mid,:]/au,
+                        yy[:,indx_mid,:]/au,
                         nrho_g[:,indx_mid,:],
                         ax = ax2,
                         xlim = xlim, ylim = ylim, dlim = nrho_g_range,
                         cmap = cmap, norm = norm, xlabel = r'$x$ (au)',
                         ylabel = r'$y$ (au)', cbarlabel = cbarlabel)
-                    ax2.tick_params(which='both', direction='in', bottom=True, 
+                    ax2.tick_params(which='both', direction='in', bottom=True,
                         top=True, left=True, right=True, pad=9)
                     ax2.set_aspect(1)
 

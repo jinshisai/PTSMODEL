@@ -24,7 +24,7 @@ class AMRGrid(object):
         self.coordsystem = coordsys
         self.gridinfo = gridinfo
         self.incl_x, self.incl_y, self.incl_z = incl_x, incl_y, incl_z
-        
+
         if gridstyle != 0:
             print('ERROR\tAMRGrid: gridstyle != 0 is found.')
             print('ERROR\tAMRGrid: Currently only regular grid is supported.')
@@ -180,7 +180,7 @@ def read_temperature(f='dust_temperature.dat', fgrid = 'amr_grid.inp'):
         print ('ERROR\tread_temperature: amr_grid.inp cannot be found.')
         return
     else:
-        nrtp = np.genfromtxt(fgrid, max_rows=1, skip_header=5, 
+        nrtp = np.genfromtxt(fgrid, max_rows=1, skip_header=5,
             delimiter=' ',dtype=int)
         nr, ntheta, nphi = nrtp
 
@@ -199,11 +199,31 @@ def read_temperature(f='dust_temperature.dat', fgrid = 'amr_grid.inp'):
         return
 
 
-def write_temperature(temp, f='dust_temperature.dat', overwrite=False):
+def write_temperature(
+    data,
+    imsize: int | None = None,
+    n_dust_species = 1,
+    iformat = 1,
+    filename = 'dust_temperature.dat'):
     '''
-    Write out xxx_temperature.dat file for RADMC-3D by hand.
+    Write out input temperature distribution to xxx_temperature.dat file for RADMC-3D.
+
+    Parameters
+    ----------
+    data : ndarray
+        Temperature distribution to export.
+    imsize: int | None
+        Image size.
+    n_dust_species: int
+        Number of dust species
     '''
-    #retemp
+    with open(filename,'w+') as f:
+        f.write('%i\n'%iformat)  # Format number
+        if imsize is None:
+            f.write('%d\n'%(temp.size))  # Number of pixels
+        f.write('%i\n'%n_dust_species)  # Number of dust species
+        np.savetxt(f, data.ravel(order='F').T, fmt=['%13.6e'])
+    return 1
 
 
 # read LAMDA file
