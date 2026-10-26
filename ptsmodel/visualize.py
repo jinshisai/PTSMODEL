@@ -96,10 +96,10 @@ def dust_density(model, outname = None,
 	yy = rxy*np.sin(phph)
 	indx_mid = np.argmin(np.abs(theta_c - np.pi*0.5)) # mid-plane
 	# density
-	rho_d  = model.rho_d
+	rho_d  = model.rho_d.copy()
 
 	# for plot
-	rho_d[np.where(rho_d <= 0.)] = np.nan
+	#rho_d[np.where(rho_d <= 0.)] = np.nan
 	rho_range = rho_range if rho_range is not None \
 	else [np.nanmax(rho_d) * drange, np.nanmax(rho_d)]
 	cbarlabel = r'$\rho_\mathrm{dust}\ \mathrm{(g\ cm^{-3})}$' if cbarlabel is None \
@@ -122,8 +122,8 @@ def dust_density(model, outname = None,
 		cbarlabel1 = ''
 
 	# r-z plot
-	colorplot(rxy[:,:,nphi//2]/au, 
-		zz[:,:,nphi//2]/au, 
+	colorplot(rxy[:,:,nphi//2]/au,
+		zz[:,:,nphi//2]/au,
 		rho_d[:,:,nphi//2], ax = ax1,
 		xlim = rlim, ylim = zlim, dlim = rho_range,
 		cmap = cmap, colorscale = 'log', xlabel = r'$R$ (au)',
@@ -133,8 +133,8 @@ def dust_density(model, outname = None,
 
 	# x-y plot
 	if nphi > 1:
-		colorplot(xx[:,indx_mid,:]/au, 
-		yy[:,indx_mid,:]/au, 
+		colorplot(xx[:,indx_mid,:]/au,
+		yy[:,indx_mid,:]/au,
 		rho_d[:,indx_mid,:], ax = ax2,
 		xlim = xlim, ylim = ylim, dlim = rho_range,
 		cmap = cmap, colorscale = 'log', xlabel = r'$x$ (au)',
@@ -150,7 +150,7 @@ def dust_density(model, outname = None,
 		fig.savefig('dust_density.pdf', transparent=True)
 
 
-def gas_density(model, outname = None, 
+def gas_density(model, outname = None,
 	nrho_range = None, xlim = None, ylim = None,
 	rlim = None, zlim = None,
 	figsize=(11.69,8.27), cmap='coolwarm',
@@ -195,11 +195,11 @@ def gas_density(model, outname = None,
 	yy = rxy*np.sin(phph)
 	indx_mid = np.argmin(np.abs(theta_c - np.pi*0.5)) # mid-plane
 	# density
-	nrho_g = model.nrho_g[model.line[imol]]
+	nrho_g = model.nrho_g[model.line[imol]].copy()
 
 
 	# for plot
-	nrho_g[np.where(nrho_g <= 0.)] = np.nan
+	# nrho_g[np.where(nrho_g <= 0.)] = np.nan
 	nrho_range = nrho_range if nrho_range is not None \
 	else [np.nanmax(nrho_g) * drange, np.nanmax(nrho_g)]
 	cbarlabel = r'$n_\mathrm{%s}\ \mathrm{(cm^{-3})}$'%model.line[imol] if cbarlabel is None \
@@ -222,8 +222,8 @@ def gas_density(model, outname = None,
 		cbarlabel1 = ''
 
 	# r-z plot
-	colorplot(rxy[:,:,nphi//2]/au, 
-		zz[:,:,nphi//2]/au, 
+	colorplot(rxy[:,:,nphi//2]/au,
+		zz[:,:,nphi//2]/au,
 		nrho_g[:,:,nphi//2], ax = ax1,
 		xlim = rlim, ylim = zlim, dlim = nrho_range,
 		cmap = cmap, colorscale = 'log', xlabel = r'$R$ (au)',
@@ -234,8 +234,8 @@ def gas_density(model, outname = None,
 	# x-y plot
 	if nphi > 1:
 		#print(indx_mid, nrho_g[:,indx_mid,:].ravel())
-		colorplot(xx[:,indx_mid,:]/au, 
-		yy[:,indx_mid,:]/au, 
+		colorplot(xx[:,indx_mid,:]/au,
+		yy[:,indx_mid,:]/au,
 		nrho_g[:,indx_mid,:], ax = ax2,
 		xlim = xlim, ylim = ylim, dlim = nrho_range,
 		cmap = cmap, colorscale = 'log', xlabel = r'$x$ (au)',
@@ -252,8 +252,8 @@ def gas_density(model, outname = None,
 	plt.close()
 
 
-def density_profile(model, 
-	outname = None, 
+def density_profile(model,
+	outname = None,
 	rho_range = None, rlim = None,
 	figsize=(11.69,8.27),
 	fontsize=14, wspace=0.4, hspace=0.2, imol=0,
@@ -289,10 +289,10 @@ def density_profile(model,
 	indx_mid = np.argmin(np.abs(theta - np.pi*0.5)) # mid-plane
 	# density
 	if kind == 'gas':
-		rho = model.nrho_g[model.line[imol]][:,indx_mid, nphi//2]
+		rho = model.nrho_g[model.line[imol]][:,indx_mid, nphi//2].copy()
 		ylabel = r'$n_\mathrm{%s}\ \mathrm{(cm^{-3})}$'%model.line[imol]
 	elif kind == 'dust':
-		rho = model.rho_d[:,indx_mid, nphi//2]
+		rho = model.rho_d[:,indx_mid, nphi//2].copy()
 		ylabel = r'$\rho_\mathrm{dust}\ \mathrm{(g\ cm^{-3})}$'
 	else:
 		print('WARNING\tdensity_profile: input type is wrong.')
@@ -397,7 +397,7 @@ def temperature(model, infile='dust_temperature.dat',
 	iformat = data[0,0]
 	imsize  = data[1,0]
 	ndspc   = data[2,0]
-	temp    = data[3:,0]
+	temp    = data[3:,0].copy()
 
 	#retemp = temp.reshape((nr,ntheta,nphi))
 	retemp = temp.reshape((nphi,ntheta,nr)).T
@@ -426,31 +426,35 @@ def temperature(model, infile='dust_temperature.dat',
 		cbarlabel1 = ''
 
 	# r-z plot
-	colorplot(rxy[:,:,nphi//2]/au, 
-		zz[:,:,nphi//2]/au, 
+	colorplot(rxy[:,:,nphi//2]/au,
+		zz[:,:,nphi//2]/au,
 		retemp[:,:,nphi//2], ax = ax1,
 		xlim = rlim, ylim = zlim, dlim = t_range,
 		cmap = cmap, colorscale = 'linear', xlabel = r'$R$ (au)',
 		ylabel = r'$z$ (au)', cbarlabel = cbarlabel1)
-	ax1.contour(rxy_c[:,:,nphi//2]/au, zz_c[:,:,nphi//2]/au, retemp[:,:,nphi//2], 
+	ax1.contour(rxy_c[:,:,nphi//2]/au, zz_c[:,:,nphi//2]/au, retemp[:,:,nphi//2],
 		levels = clevels, colors = 'white', linewidths = 1.)
-	ax1.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True, pad=9)
+	ax1.tick_params(
+		which='both', direction='in',
+		bottom=True, top=True, left=True, right=True, pad=9)
 	ax1.set_aspect(1)
 
 	# x-y plot
 	if nphi > 1:
 		# color
-		colorplot(rxy[:,indx_mid,:]/au, 
-		zz[:,indx_mid,:]/au, 
+		colorplot(rxy[:,indx_mid,:]/au,
+		zz[:,indx_mid,:]/au,
 		retemp[:,indx_mid,:], ax = ax2,
 		xlim = xlim, ylim = ylim, dlim = t_range,
 		cmap = cmap, colorscale = 'linear', xlabel = r'$x$ (au)',
 		ylabel = r'$y$ (au)', cbarlabel = cbarlabel)
 		# contour
-		ax2.contour(rxy_c[:,indx_mid,:]/au, zz_c[:,indx_mid,:]/au, retemp[:,indx_mid,:], 
+		ax2.contour(rxy_c[:,indx_mid,:]/au, zz_c[:,indx_mid,:]/au, retemp[:,indx_mid,:],
 			levels = clevels, colors = 'white', linewidths = 1.)
 		# ticks
-		ax2.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True, pad=9)
+		ax2.tick_params(
+			which='both', direction='in',
+			bottom=True, top=True, left=True, right=True, pad=9)
 		ax2.set_aspect(1)
 
 		fig.subplots_adjust(wspace=wspace, hspace=hspace)
@@ -518,7 +522,7 @@ def plot_temperature_xy(model, infile='dust_temperature.dat', fig=None, ax=None,
 	iformat = data[0,0]
 	imsize  = data[1,0]
 	ndspc   = data[2,0]
-	temp    = data[3:,0]
+	temp    = data[3:,0].copy()
 
 	#retemp = temp.reshape((nr,ntheta,nphi))
 	retemp = temp.reshape((nphi,ntheta,nr)).T
@@ -541,8 +545,8 @@ def plot_temperature_xy(model, infile='dust_temperature.dat', fig=None, ax=None,
 
 	# plot
 	indx_mid = np.argmin(np.abs(theta_c - np.pi*0.5)) # mid-plane
-	im = ax.pcolormesh(xx[:,indx_mid,:]/au, yy[:,indx_mid,:]/au, 
-		retemp[:,indx_mid,:], cmap=cmap, vmin = t_range[0], vmax=t_range[1], 
+	im = ax.pcolormesh(xx[:,indx_mid,:]/au, yy[:,indx_mid,:]/au,
+		retemp[:,indx_mid,:], cmap=cmap, vmin = t_range[0], vmax=t_range[1],
 		rasterized=True)
 
 	shrink = shrink if shrink else aspect*0.8
@@ -562,7 +566,6 @@ def plot_temperature_xy(model, infile='dust_temperature.dat', fig=None, ax=None,
 		#fig.subplots_adjust(wspace=wspace, hspace=hspace)
 		fig.savefig('dust_temperature_xy.pdf', transparent=True)
 	return fig
-
 
 
 def plot_temperature_rz(model, infile='dust_temperature.dat', fig=None, ax=None,
@@ -620,7 +623,7 @@ def plot_temperature_rz(model, infile='dust_temperature.dat', fig=None, ax=None,
 	iformat = data[0]
 	imsize  = data[1]
 	ndspc   = data[2]
-	temp    = data[3:]
+	temp    = data[3:].copy()
 
 	#retemp = temp.reshape((nr,ntheta,nphi))
 	retemp = temp.reshape((nphi,ntheta,nr)).T
@@ -657,7 +660,8 @@ def plot_temperature_rz(model, infile='dust_temperature.dat', fig=None, ax=None,
 	ax.set_ylabel(r'$z$ (au)')
 	cbar.set_label(r'$T_\mathrm{dust}\ \mathrm{(K)}$')
 
-	ax.tick_params(which='both', direction='in', bottom=True, top=True, left=True, right=True)
+	ax.tick_params(which='both', direction='in',
+		bottom=True, top=True, left=True, right=True)
 	ax.set_xlim(*r_range)
 	ax.set_ylim(*z_range)
 	#ax1.set_aspect(aspect)
@@ -669,7 +673,7 @@ def plot_temperature_rz(model, infile='dust_temperature.dat', fig=None, ax=None,
 	return fig
 
 
-def colorplot(x, y, d, 
+def colorplot(x, y, d,
 	xlim = None, ylim = None, dlim = None,
 	fig = None, ax = None, iaxis = 0, figsize = None,
 	colorscale = 'linear', cmap = 'coolwarm', norm = None,
@@ -699,7 +703,8 @@ def colorplot(x, y, d,
 	im = ax.pcolormesh(x, y, d,
 		norm = norm, cmap = cmap, rasterized = True)
 	if colorbar:
-		cax, cbar = add_colorbar_toaxis(im, ax, cbarlabel = cbarlabel, 
+		cax, cbar = add_colorbar_toaxis(
+			im, ax, cbarlabel = cbarlabel,
 			cbaroptions = cbaroptions)
 
 	ax.set_xlim(xlim[0], xlim[1])
@@ -710,14 +715,13 @@ def colorplot(x, y, d,
 	return im, ax
 
 
-
 def add_colorbar_toaxis(
 	cim, ax,
-    cbarlabel: str='', 
+    cbarlabel: str='',
     cbaroptions: list = ['right', '3%', '0%'],
     ticks: list = None,
-    tickcolor: str = 'k', 
-    axiscolor: str = 'k', 
+    tickcolor: str = 'k',
+    axiscolor: str = 'k',
     labelcolor: str = 'k'):
     # parameter
     orientations = {
@@ -756,11 +760,10 @@ def add_colorbar_toaxis(
         bbox_transform = ax.transAxes,
         borderpad = 0.)
     # add a color bar
-    cbar = plt.colorbar(cim, cax=cax, ticks=ticks, 
+    cbar = plt.colorbar(cim, cax=cax, ticks=ticks,
         orientation=orientations[cbar_loc], ticklocation=cbar_loc)
     cbar.set_label(cbarlabel)
     return cax, cbar
-
 
 
 def gasdensity3d_faceon(model, step=1,
@@ -781,15 +784,14 @@ def gasdensity3d_faceon(model, step=1,
 
 
 	# density
-	#rho_d = model.rho_d
-	rho_g = model.rho_g
-	nrho_g = model.nrho_g
+	rho_g = model.rho_g.copy()
+	nrho_g = model.nrho_g.copy()
 
 
 	# velocity
-	vr     = model.vr
-	vtheta = model.vtheta
-	vphi   = model.vphi
+	vr     = model.vr.copy()
+	vtheta = model.vtheta.copy()
+	vphi   = model.vphi.copy()
 
 	# vx, vy, vz
 	vx = vr*np.sin(tt)*np.cos(phph) + vtheta*np.cos(tt)*np.cos(phph) - vphi*np.sin(phph)
@@ -814,8 +816,6 @@ def gasdensity3d_faceon(model, step=1,
 	xx_smpl = xx[::step,::step,::step]
 	yy_smpl = yy[::step,::step,::step]
 	zz_smpl = zz[::step,::step,::step]
-
-
 
 	# for plot
 	nrho_g_min = nrho_g_min if nrho_g_min else np.nanmin(nrho_g)
@@ -893,15 +893,13 @@ def gasdensity3d_obconfg(model, step=1,
 
 
 	# density
-	#rho_d = model.rho_d
-	rho_g = model.rho_g
-	nrho_g = model.nrho_g
-
+	rho_g = model.rho_g.copy()
+	nrho_g = model.nrho_g.copy()
 
 	# velocity
-	vr     = model.vr
-	vtheta = model.vtheta
-	vphi   = model.vphi
+	vr     = model.vr.copy()
+	vtheta = model.vtheta.copy()
+	vphi   = model.vphi.copy()
 
 	# vx, vy, vz
 	vx = vr*np.sin(tt)*np.cos(phph) + vtheta*np.cos(tt)*np.cos(phph) - vphi*np.sin(phph)
