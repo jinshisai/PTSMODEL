@@ -220,7 +220,7 @@ def write_temperature(
     with open(filename,'w+') as f:
         f.write('%i\n'%iformat)  # Format number
         if imsize is None:
-            f.write('%d\n'%(temp.size))  # Number of pixels
+            f.write('%d\n'%(data.size))  # Number of pixels
         f.write('%i\n'%n_dust_species)  # Number of dust species
         np.savetxt(f, data.ravel(order='F').T, fmt=['%13.6e'])
     return 1
