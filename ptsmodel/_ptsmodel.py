@@ -52,7 +52,7 @@ class PTSMODEL():
 
     def __init__(self, modelname, nr=None, ntheta=None, nphi=None ,rmin=None, rmax=None,
      thetamin=0., thetamax=np.pi*0.5, phimin=0., phimax=2.*np.pi, line=None, Xmol=None,
-     readfiles=False):
+     readfiles=False, modeldir = ''):
         self.modelname = modelname
 
         # initialize
@@ -76,15 +76,18 @@ class PTSMODEL():
         self.nrho_g = {i: np.array([]) for i in self.line}
 
         if readfiles:
-            self.read_model()
-            return
-
-        # makegrid
-        if all(np.array([nr, ntheta, nphi, rmin, rmax, thetamin, thetamax, phimin, phimax]) != None):
-            print ('Making a grid..')
-            self.makegrid(nr, ntheta, nphi ,rmin, rmax,
-                thetamin=thetamin, thetamax=thetamax, phimin=phimin, phimax=phimax)
-
+            self.read_model(modeldir = modeldir)
+        else:
+            # makegrid
+            if all(np.array([nr, ntheta, nphi, rmin, rmax, thetamin, thetamax, phimin, phimax]) != None):
+                print ('Making a grid..')
+                self.makegrid(nr, ntheta, nphi ,rmin, rmax,
+                    thetamin=thetamin, thetamax=thetamax, phimin=phimin, phimax=phimax)
+            else:
+                print(
+                    'ERROR\tPTSMODEL: '
+                    'need grid info. to make a grid.'
+                )
 
     def read_model(self, modeldir = ''):
         '''

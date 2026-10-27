@@ -334,9 +334,9 @@ def density_profile(model,
 # plot temperature profile
 def temperature(model, infile='dust_temperature.dat',
 	outname = None,
-	t_range = None, xlim = None, ylim = None, rlim = None, zlim = None, 
-	figsize=(11.69,8.27), 
-	cmap='coolwarm', fontsize=14, wspace=0.4, hspace=0.2, 
+	t_range = None, xlim = None, ylim = None, rlim = None, zlim = None,
+	figsize=(11.69,8.27),
+	cmap='coolwarm', fontsize=14, wspace=0.4, hspace=0.2,
 	cbaroptions = ['right', '3%', '3%'], cbarlabel = None,
 	clevels = [10,20,30,40,50,60]):
 	'''
