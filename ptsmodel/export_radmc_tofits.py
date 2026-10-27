@@ -1,5 +1,4 @@
-### import modules
-
+# Modules
 import numpy as np
 import pandas as pd
 import os
@@ -10,20 +9,17 @@ from datetime import datetime
 from astropy.coordinates import SkyCoord
 from astropy.convolution import convolve_fft
 
+from .model_utils import read_lamda_moldata
 
-
-### constants
-
+# constants
 au     = 1.49598e13      # Astronomical Unit       [cm]
 kb     = 1.38064852e-16  # Boltzmann constant [erg K^-1]
 hp     = 6.626070040e-27 # Planck constant [erg s]
 clight = 2.99792458e10   # light speed [cm s^-1]
 
 
-
-
-### functions
-# convert Icgs --> Ibeam
+# Functions
+# Convert Icgs --> Ibeam
 def IcgsTObeam(Icgs,bmaj,bmin):
     '''
     Convert Intensity in cgs to in Jy/beam
@@ -152,54 +148,103 @@ def rotate2d(x, y, angle, deg=True, coords=False):
 
 
 # export
-def export_radmc_tofits(outname, f='image.out', obsinfo=None, restfreq=None, hdr=None, dist=140.,
-    coordinate_center = '0h0m0.0s 0d0m0.0s', projection='SIN', frame = 'fk5', vsys=0,
-    obname=None, beam_convolution=True, beam=[], Tb=False, add_noise=False, rms=None,
-    noise_scale_factor=1.5, overwrite=False, units='Jy/beam'):
+def export_radmc_tofits(
+    outname: str,
+    f: str = 'image.out',
+    line: str | None = None,
+    iline: int | None = None,
+    restfreq: float | None = None,
+    hdr = None,
+    dist: float = 140.,
+    coordinate_center: str = '0h0m0.0s 0d0m0.0s',
+    frame: str = 'fk5',
+    projection: str ='SIN',
+    vsys: float = 0.,
+    obname: str | None = None,
+    beam_convolution: bool = True,
+    beam: list = [],
+    Tb: bool = False,
+    add_noise: bool = False,
+    rms: float = None,
+    overwrite: bool = False,
+    units: str = 'Jy/beam',
+    add_linename: bool = True,
+    ext: str = ''):
     '''
     Export a radmc output file into a fits file.
 
     Parameters
     ----------
-     outname (str): Output name. outname.fits will be the one you get.
-     f (str): radmc image file.
-     obsinfo (str): Name of obsinfo file. If there is any input,
-                    rest frequency, inclination, pa will be read from it.
-     restfreq (float): Rest frequency in Hz. If obsinfo file is provided,
-                       this parameter is not used.
-     hdr (header): Header information can be directly given. Default None.
-     dist (float): Distance to the object in pc.
-     coordinate_center (str): Coordinate of the target source. Must be given
-                              in a format of 'hms dms'.
-     projection (str): Projection to the plane of sky.
-     frame (str): Coordinate frame.
-     vsys (float): Systemic velocity in km/s.
-     obname (str): Object name written in header if given.
-     beam_convolution (bool): Beam will be convolved if True.
-     beam (list): Beam properties for beam convolution. Must be given
-                  as [bmaj, bmin, bpa].
-     Tb (bool): Output unit will be in K if True.
-     add_noise (bool): Add noise if True.
-     rms (float): RMS noise level.
-     noise_scale_factor (float): Unit conversion factor for noise.
-     units (str): Output unit of the intensity. Current option is Jy/pixel,
-                  which is for CASA simulation.
-     overwrite (bool): Overwrite existing fits file if True.
+    outname : str
+        Output file name. It will be followed by the line name
+        if it is given and add_linename = True and then by ext.
+        E.g., when line = co, iline = 2, ext = '_contsub',
+        the output file name will be outname_co2-1_contsub.fits.
+    f : str
+        RADMC image file.
+    line : str | None
+        Molecule of the line. Used to know the rest frequency.
+    iline : int | None
+        Index of line transition. Used to know the rest frequency.
+    Restfreq : float | None
+        Rest frequency in Hz. This parameter is not used
+        if both line and iline are provided.
+    hdr : header | None
+        Header information can be directly given. Default None.
+    dist : float
+        Distance to the object in pc.
+    coordinate_center : str
+        Coordinate of the target source.
+        Must be given in a format of 'hms dms'.
+    projection : str
+        Projection to the plane of sky.
+    frame : str
+        Coordinate frame.
+    vsys : float
+        Systemic velocity in km/s.
+    obname : str | None
+        Object name written in header if given.
+    beam_convolution : bool
+        Beam will be convolved if True.
+    beam : list
+        Beam properties for beam convolution.
+        Must be given as [bmaj, bmin, bpa].
+    Tb : bool
+        Output unit will be in K if True.
+    add_noise : bool
+        Add noise if True.
+    rms : float
+        RMS noise level.
+    units : str | None
+        This parameter will be removed in future.
+        The output unit will be automatically selected
+        from Jy/pixel, Jy/beam or K.
+    overwrite : bool
+        Overwrite existing fits files if True.
+    add_linename : bool
+        Add the line name to the output file name if True.
+    ext : str
+        Add extra strings to the file name, following the line name.
     '''
     print ('Export a radmc image to a fits file.')
 
-    # obs. info.
-    if obsinfo is None:
-        # strip contsub
-        if '_contsub' in f:
-            obsinfo = f.replace('_contsub', '').replace('.out', '.obsinfo')
-        elif '_cont' in f:
-            obsinfo = f.replace('_cont', '').replace('.out', '.obsinfo')
+    # Get line information
+    if line is not None:
+        if iline is None:
+            print(
+                'ERROR\texport_radmc_tofits: '
+                'iline is required to get line info but is not provided.\n'
+                'ERROR\texport_radmc_tofits: '
+                'Ignore the input line.'
+                )
         else:
-            obsinfo = f.replace('.out', '.obsinfo')
+            _, weight, nlevels, EJ, gJ, J, ntrans, trans, Jup, Jlow, Acoeff, freq, delE = \
+            read_lamda_moldata('molecule_'+line+'.inp')
+            restfreq = freq[iline-1] * 1.e9  # rest frequency (Hz)
+            itran = str(trans[iline-1])  # Transition
 
     # read image file
-    print ('reading files...')
+    print ('Reading files...')
     iformat = np.genfromtxt(f, dtype=None, max_rows=1)
     imsize  = np.genfromtxt(f, delimiter='     ',max_rows=1, skip_header=1, dtype=int)
     nlam    = np.genfromtxt(f, max_rows=1, skip_header=2, dtype=int)
@@ -207,20 +252,8 @@ def export_radmc_tofits(outname, f='image.out', obsinfo=None, restfreq=None, hdr
     lam     = np.genfromtxt(f, max_rows=nlam, skip_header=4, dtype=float)
     data    = pd.read_csv(f, comment='#', encoding='utf-8', header=None, dtype=float, skiprows=5+nlam)
     image   = data.values
-    #print iformat, imsize,nlam,pixsize,lam
 
-
-    # rest frequency
-    if os.path.exists(obsinfo):
-        restfreq, inc, pa = np.genfromtxt(obsinfo, unpack=True, delimiter=' ')
-    elif restfreq is None:
-        print ('ERROR\texport_radmc_tofits: Rest frequency is not found.')
-        return
-    else:
-        inc = None
-        pa  = None
-
-    # grid
+    # Grid
     nx, ny     = imsize
     delx, dely = pixsize/au/dist/3600.             # cm --> au --> arcsec --> degree
     delx       = - delx                            # observe object on a sky plane from the Earth, so that the x axis is inversed
@@ -228,11 +261,8 @@ def export_radmc_tofits(outname, f='image.out', obsinfo=None, restfreq=None, hdr
     freq       = clight/(lam*1.e-6*1.e2)
     reimage    = image.reshape((1,nlam,ny,nx))#,order='F')
     freq_vsys  = - vsys*1.e5*restfreq/clight
-    #print len(reimage.shape), type(nlam)
-    #print (clight*(1.-(freq[0]+freq_vsys)/restfreq)*1e-5)
 
-
-    # set coordinates
+    # Set coordinates
     # image center is (0.0), meaning the origin of the coordinate is between pixels
     # all in degree for header
     xref, yref       = [0+delx*0.5,0+dely*0.5]
@@ -242,7 +272,6 @@ def export_radmc_tofits(outname, f='image.out', obsinfo=None, restfreq=None, hdr
     xmin = xref + delx*(1 - crpix_x)
     ymax = yref + dely*(ny - crpix_y)
     ymin = yref + dely*(1 - crpix_y)
-    #print xmin, xmax, ymin, ymax
 
     # projection
     ra  = 'RA---'+projection
@@ -250,7 +279,7 @@ def export_radmc_tofits(outname, f='image.out', obsinfo=None, restfreq=None, hdr
 
     # coordinate center
     c_ra, c_dec = coordinate_center.split(' ')
-    c_center    = SkyCoord(c_ra,c_dec,frame=frame) # ra,dec in [deg]
+    c_center    = SkyCoord(c_ra,c_dec,frame=frame)  # ra,dec in [deg]
     alpha0, delta0 = [c_center.ra.deg, c_center.dec.deg]
 
     # reference: Calabretta and Greisen (2002)
@@ -279,7 +308,6 @@ def export_radmc_tofits(outname, f='image.out', obsinfo=None, restfreq=None, hdr
     # date
     today = datetime.today()
     today = today.strftime("%Y/%m/%d %H:%M:%S")
-
 
     # header
     if hdr:
@@ -355,33 +383,27 @@ def export_radmc_tofits(outname, f='image.out', obsinfo=None, restfreq=None, hdr
     hdr['TELESCOP'] = 'None'
     hdr['OBSERVER'] = 'RADMC3D'
     hdr['DATE']     = (today, 'Date FITS file was written')
-    if inc is not None: hdr['INC'] = inc
-    if pa is not None: hdr['PA']   = pa
-    #print hdr
-
 
     # output
     outimage = copy.deepcopy(reimage)
 
-
     # add noise
     if add_noise:
         if rms:
-            if len(beam)==3:
+            if beam_convolution & (len(beam) == 3):
                 bmaj, bmin, bpa = beam
-                f_cgstobeam     = IcgsTObeam(1.,bmaj,bmin)                     # factor = Ibeam/Icgs
-                f_tbtoIbeam     = IvTOJT(restfreq, bmaj/3600., bmin/3600., 1.) # factor = Tmb/Ibeam
+                f_cgstobeam = IcgsTObeam(1.,bmaj,bmin)                     # factor = Ibeam/Icgs
+                f_tbtoIbeam = IvTOJT(restfreq, bmaj/3600., bmin/3600., 1.) # factor = Tmb/Ibeam
 
                 # unit
                 if Tb:
-                    rms = rms/f_tbtoIbeam # Tb --> Jy/beam
-                rms = rms/f_cgstobeam # Jy/beam --> in cgs
+                    rms /= f_tbtoIbeam  # Tb --> Jy/beam
+                rms /= f_cgstobeam  # Jy/beam --> in cgs
 
                 # scaling to add noise before convolution
                 s_ang = np.pi/(4.*np.log(2.))*bmaj*bmin/3600./3600.  # solid angle (deg^2)
-                ratio = s_ang/np.abs(delx*dely)                      # pixels
-                rms   = rms*np.sqrt(ratio)*noise_scale_factor        # scale factor for fine tuning
-                #print (ratio)
+                ratio = s_ang/np.abs(delx*dely)  # pixels
+                rms *= np.sqrt(2. * ratio)  # Factor of 2 arises beacuse of double beam conv.
             else:
                 pass
 
@@ -391,23 +413,10 @@ def export_radmc_tofits(outname, f='image.out', obsinfo=None, restfreq=None, hdr
             print ('ERROR\texport_radmc_tofits: The parameter rms is not found, which is necessary to add noise.')
             return
 
-        print ('adding noise...')
+        print ('Adding noise...')
         outimage = outimage + noise
 
-
-    # unit
-    #if units == 'Jy/pixel':
-    #    # in cgs --> Jy/pixel
-    #    outimage = IcgsTOjpp(outimage,pixsize[0]/au,pixsize[1]/au,dist)
-    #    hdr['BUNIT'] = ('Jy/pixel', 'Brightness (pixel) unit')
-    #    if beam_convolution:
-    #        print ('Currently beam convolution is not supported when unit \
-    #            of Jy/pixel is used.')
-    #        beam_convolution = False
-    #    Tb = False
-
-
-    # beam convolution
+    # Beam convolution
     if beam_convolution:
         if len(beam)==3:
             print ('Convolving a beam...')
@@ -424,11 +433,6 @@ def export_radmc_tofits(outname, f='image.out', obsinfo=None, restfreq=None, hdr
             area = 1.
             beam = gaussian2D(xx, yy, area, 0., 0., sigx, sigy, pa = bpa)
 
-            '''
-            for ichan in range(nlam):
-                imconv = outimage[0,ichan,:,:]
-                outimage[0,ichan,:,:] = convolve_fft(imconv, beam, nan_treatment='fill')
-            '''
             outimage = np.array([
                 convolve_fft(outimage[0,ichan,:,:], beam, nan_treatment='fill')
                 for ichan in range(nlam) ])
@@ -438,8 +442,8 @@ def export_radmc_tofits(outname, f='image.out', obsinfo=None, restfreq=None, hdr
             outimage = IcgsTObeam(outimage,bmaj,bmin)
 
             # header
-            hdr['BMAJ'] = bmaj/3600. # degree
-            hdr['BMIN'] = bmin/3600. # degree
+            hdr['BMAJ'] = bmaj / 3600. # degree
+            hdr['BMIN'] = bmin / 3600. # degree
             hdr['BPA']  = bpa
         else:
             print ('ERROR\texport_radmc_tofits: The format of the input beam is wrong.\
@@ -451,13 +455,8 @@ def export_radmc_tofits(outname, f='image.out', obsinfo=None, restfreq=None, hdr
             hdr['BUNIT'] = ('Jy/pixel', 'Brightness (pixel) unit')
     else:
         # in cgs --> Jy/pixel
-        if units == 'original':
-            hdr['BUNIT'] = ''
-            pass
-        else:
-            outimage = IcgsTOjpp(outimage,pixsize[0]/au,pixsize[1]/au,dist)
-            hdr['BUNIT'] = ('Jy/pixel', 'Brightness (pixel) unit')
-
+        outimage = IcgsTOjpp(outimage,pixsize[0]/au,pixsize[1]/au,dist)
+        hdr['BUNIT'] = ('Jy/pixel', 'Brightness (pixel) unit')
 
     # Jy/beam --> Tb
     if beam_convolution & Tb:
@@ -466,11 +465,25 @@ def export_radmc_tofits(outname, f='image.out', obsinfo=None, restfreq=None, hdr
             for i in range(nlam)])
         hdr['BUNIT'] = ('K ', 'Tb')
 
+    # Write to fits file
+    # Set output file name
+    # Add line
+    if add_linename & all([i is not None for i in [line, iline]]):
+        outname += '_%s%s'%(line, itran)
 
-    # write to fits file
-    print ('writing fits file...')
+    # Add ext
+    if len(ext) >= 1:
+        if ext[0] in ['_', '.']:
+            outname += ext
+        else:
+            outname += '_' + ext
+
+    # Overwrite
     if os.path.exists(outname+'.fits'):
         os.system('rm -r '+outname+'.fits')
 
+    # Export
+    print ('Writing fits file...')
     fits.writeto(outname+'.fits', outimage, header=hdr)
+
     return
