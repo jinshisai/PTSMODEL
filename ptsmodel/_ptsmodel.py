@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 '''
-Made and developed by J. Sai.
+Developed by J. Sai.
 
 email: jn.insa.sai@gmail.com
 '''
@@ -15,8 +15,9 @@ from astropy import constants, units
 #import matplotlib
 #matplotlib.use('TkAgg')
 
-from .model_utils import read_lamda_moldata, image_contsub
+from .model_utils import read_grid, read_lamda_moldata, image_contsub, AMRGrid
 from . import model_utils
+from . import visualize
 
 # constants (in cgs)
 
@@ -42,7 +43,7 @@ mp     = constants.m_p.cgs.value      # Proton mass (g)
 #kb    = 1.38064852e-16  # Boltzman coefficient in cgs
 
 
-# ProToStellar MODEL
+# ProtoStellar MODEL
 class PTSMODEL():
     '''
     Build a model of a protostar, a disk, and an envelope system.
@@ -50,30 +51,45 @@ class PTSMODEL():
     '''
 
     def __init__(self, modelname, nr=None, ntheta=None, nphi=None ,rmin=None, rmax=None,
-     thetamin=0., thetamax=np.pi*0.5, phimin=0., phimax=2.*np.pi, readfiles=False):
+     thetamin=0., thetamax=np.pi*0.5, phimin=0., phimax=2.*np.pi, line=None, Xmol=None,
+     readfiles=False, modeldir = ''):
         self.modelname = modelname
 
         # initialize
-        self.disk     = 0
-        self.envelope = 0
-        self.cavity   = 0
-        self.rho_disk = np.array([])
-        self.rho_env  = np.array([])
-        self.rho_g    = np.array([])
-        self.turbulence = False
+        self.disk     = 0 # if model disk
+        self.envelope = 0 # if model envelope
+        self.cavity   = 0 # if model cavity
+        self.rho_disk = np.array([]) # Total gas density of disk
+        self.rho_env  = np.array([]) # Total gas density of envelope
+        self.turbulence = False # turbulence
+        self.line = line if ( (type(line) == tuple) | (type(line) == list))\
+        else [line]  # line(s)
+        _Xmol = Xmol if ( (type(Xmol) == tuple) | (type(Xmol) == list))\
+        else [Xmol]  # line(s)
+        if len(_Xmol) != len(self.line):
+            print(_Xmol, line)
+            print('ERROR\tPTSMODEL: Dimention of line and Xmol must be the same.')
+            return
+        else:
+            self.Xmol = {self.line[i]: _Xmol[i] for i in range(len(self.line))}
+        self.rho_g = {i: np.array([]) for i in self.line}
+        self.nrho_g = {i: np.array([]) for i in self.line}
 
         if readfiles:
-            self.read_model()
-            return
+            self.read_model(modeldir = modeldir)
+        else:
+            # makegrid
+            if all(np.array([nr, ntheta, nphi, rmin, rmax, thetamin, thetamax, phimin, phimax]) != None):
+                print ('Making a grid..')
+                self.makegrid(nr, ntheta, nphi ,rmin, rmax,
+                    thetamin=thetamin, thetamax=thetamax, phimin=phimin, phimax=phimax)
+            else:
+                print(
+                    'ERROR\tPTSMODEL: '
+                    'need grid info. to make a grid.'
+                )
 
-        # makegrid
-        if all(np.array([nr, ntheta, nphi, rmin, rmax, thetamin, thetamax, phimin, phimax]) != None):
-            print ('Making a grid..')
-            self.makegrid(nr, ntheta, nphi ,rmin, rmax,
-                thetamin=thetamin, thetamax=thetamax, phimin=phimin, phimax=phimax)
-
-
-    def read_model(self):
+    def read_model(self, modeldir = ''):
         '''
         Reconstuct model by reading model files.
 
@@ -85,54 +101,50 @@ class PTSMODEL():
 
         # reading file
         # grid
-        f = 'amr_grid.inp'
+        f = modeldir + 'amr_grid.inp'
         if os.path.exists(f) == False:
             print ('ERROR\tread_model: amr_grid.inp cannot be found.')
             return
 
-        # dimension
-        nrtp             = np.genfromtxt(f, max_rows=1, skip_header=5, delimiter=' ',dtype=int)
-        nr, ntheta, nphi = nrtp
-        arraysize        = (nr,ntheta,nphi)
-        self.nr     = nr
-        self.ntheta = ntheta
-        self.nphi   = nphi
+        grid = AMRGrid(f)
 
-        dread            = pd.read_csv(f, skiprows=6, comment='#', encoding='utf-8',header=None)
-        coords           = dread.values
-        ri, thetai, phii = np.split(coords,[nr+1,nr+ntheta+2])
+        # Coordinate system
+        if grid.coordsystem < 100:
+            # Cartesian
+            self.nx, self.ny, self.nz = grid.nx, grid.ny, grid.nz
+            self.gridshape = (self.nx, self.ny, self.nz)
+            self.xi = grid.xi
+            self.yi = grid.yi
+            self.zi = grid.zi
+            self.x = grid.x
+            self.y = grid.y
+            self.z = grid.z
 
-        # centers of each cell
-        rc       = 0.5 * ( ri[0:nr] + ri[1:nr+1] )                 # centers of each cell
-        thetac   = 0.5 * ( thetai[0:ntheta] + thetai[1:ntheta+1] )
-        phic     = 0.5 * ( phii[0:nphi] + phii[1:nphi+1] )
+            self.xx, self.yy, self.zz = np.meshgrid(self.x, self.y, self.z, indexing = 'ij')
+            self.xxi, self.yyi, self.zzi = np.meshgrid(self.xi, self.yi, self.zi, indexing = 'ij')
+        elif 100 <= grid.coordsystem < 200:
+            # Spherical
+            self.nr     = grid.nr
+            self.ntheta = grid.ntheta
+            self.nphi   = grid.nphi
+            self.gridshape = (self.nr, self.ntheta, self.nphi)
+            self.ri        = grid.ri
+            self.thetai    = grid.thetai
+            self.phii      = grid.phii
+            self.r         = grid.r
+            self.theta     = grid.theta
+            self.phi       = grid.phi
 
-        # get grid
-        qq           = np.meshgrid(rc,thetac,phic,indexing='ij') # (r, theta, phi) in the spherical coordinate
-        rr, tt, phph = qq
-        zr           = 0.5*np.pi - tt # angle from z axis (90deg - theta)
-        rxy          = rr*np.sin(tt)  # r in xy-plane
-        zz           = rr*np.cos(tt)  # z in xyz coordinate
+            self.rr, self.tt, self.phph = np.meshgrid(self.r, self.theta, self.phi, indexing='ij')
+            self.rxy = self.rr * np.sin(self.tt)
+            self.zz = self.rr * np.cos(self.tt)
+            self.rri, self.tti, self.phphi = np.meshgrid(self.ri,self.thetai,self.phii,indexing='ij')
 
-        # save
-        self.ri        = ri
-        self.thetai    = thetai
-        self.phii      = phii
-        self.r         = rc
-        self.theta     = thetac
-        self.phi       = phic
-        self.gridshape = arraysize
-        self.grid      = qq
-        self.rr        = rr
-        self.tt        = tt
-        self.phph      = phph
-        self.rxy       = rxy
-        self.zz        = zz
-
+        arraysize = self.gridshape
 
         # density
         # dust denisty [g/cm3]
-        f = 'dust_density.inp'
+        f = modeldir + 'dust_density.inp'
         if os.path.exists(f) == False:
             print ('WARNING\t: dust_density.inp cannot be found. Put zero for dust density.')
             rho_d = np.zeros(arraysize)
@@ -144,37 +156,39 @@ class PTSMODEL():
 
 
         # gas number denisty [/cm3]
-        files = glob.glob('numberdens_*.inp')
+        files = glob.glob(modeldir + 'numberdens_*.inp')
         if len(files) == 0:
             print ("WARNING\t: numberdens_*.inp doesn't exist. Put zero for gas density.")
             nrho_g = np.zeros(arraysize)
             rho_g  = np.zeros(arraysize)
-        elif len(files) == 1:
-            f      = files[0]
-            dread  = pd.read_table(f, skiprows=2, comment='#', encoding='utf-8',header=None)
-            nrho_g = dread.values
-            nrho_g = np.reshape(nrho_g.T,arraysize,order='F')
         else:
-            f = files[0]
-            print ("WARNING\t: More than two numberdens_*.inp files? Read '%s' for the moment."%f)
-            dread  = pd.read_table(f, skiprows=2, comment='#', encoding='utf-8',header=None)
-            nrho_g = dread.values
-            nrho_g = np.reshape(nrho_g.T,arraysize,order='F')
+            self.line = [files[i].split('_')[-1].split('.')[0] for i in range(len(files))]
+            self.nrho_g = { i: np.array([]) for i in self.line}
+            for i, line in enumerate(self.line):
+                f = files[i]
+                #print ("WARNING\t: More than two numberdens_*.inp files? Read '%s' for the moment."%f)
+                dread  = pd.read_table(f, skiprows=2, comment='#', encoding='utf-8',header=None)
+                nrho_g = dread.values
+                nrho_g = np.reshape(nrho_g.T,arraysize,order='F')
+                # save
+                self.nrho_g[line] = nrho_g
 
         # save
         self.rho_d  = rho_d
-        self.nrho_g = nrho_g
+        #self.nrho_g = nrho_g
 
 
         # gas velocity [cm/s]
-        f = 'gas_velocity.inp'
+        f = modeldir + 'gas_velocity.inp'
         if os.path.exists(f) == False:
             print ("WARNING\t: gas_velocity.inp doesn't exist. Put zero for gas v-field.")
             vr     = np.zeros(arraysize)
             vtheta = np.zeros(arraysize)
             vphi   = np.zeros(arraysize)
         else:
-            dread = pd.read_csv(f, skiprows=2, comment='#', encoding='utf-8',header=None, delimiter=' ',parse_dates=True, keep_date_col=True, skipinitialspace=True)
+            dread = pd.read_csv(f, skiprows=2,
+                comment='#', encoding='utf-8', header=None,
+                sep = '\s+', parse_dates=True, skipinitialspace=True)
             vrtp             = dread.values
             vr, vtheta, vphi = vrtp.T
             vr               = np.reshape(vr,arraysize,order='F')
@@ -187,15 +201,15 @@ class PTSMODEL():
 
 
         # temperature if exists
-        f = 'dust_temperature.dat'
+        f = modeldir + 'dust_temperature.dat'
         if os.path.exists(f):
-            data = np.genfromtxt(f, delimiter='\n',)#.values
-            iformat = data[0]
-            imsize  = data[1]
-            ndspc   = data[2]
-            temp    = data[3:]
+            data = pd.read_csv(f, delimiter='\s+', header=None).values
+            iformat = data[0,0]
+            imsize  = data[1,0]
+            ndspc   = data[2,0]
+            temp    = data[3:,0]
 
-            retemp = temp.reshape((nphi,ntheta,nr)).T
+            retemp = temp.reshape(arraysize).T
             self.temp = retemp
         else:
             self.temp = None
@@ -237,13 +251,8 @@ class PTSMODEL():
         self.theta     = thetac
         self.phi       = phic
 
-        # make a grid
-        qq = np.meshgrid(rc,thetac,phic,indexing='ij')
-
-        # in spherical coordinates
-        rr   = qq[0]              # r in spherical coordinate
-        tt   = qq[1]              # theta in spherical coordinate
-        phph = qq[2]              # phi in spherical coordinate
+        # make a grid in spherical coordinates
+        rr, tt, phph = np.meshgrid(rc,thetac,phic,indexing='ij')
 
         # cylindrical coordinates (for disk)
         rxy  = rr*np.sin(tt)      # radius in xy-plane, r*sin(theta)
@@ -251,12 +260,13 @@ class PTSMODEL():
 
         # save
         self.gridshape = rr.shape
-        self.grid      = qq
         self.rr        = rr
         self.tt        = tt
         self.phph      = phph
         self.rxy       = rxy
         self.zz        = zz
+        # cell border
+        self.rri, self.tti, self.phphi = np.meshgrid(ri,thetai,phii,indexing='ij')
 
         return
 
@@ -276,8 +286,7 @@ class PTSMODEL():
             plh: Power-law index of the radial profile of h/r, which determines disk-flaring.
              It should be 0.25 if you assume T prop r^-0.5 & Keplerian rotation.
             sig0 (bool): If False, mdisk will be treated as Mdisk.
-             If True, mdisk will be treated as sigma_0, column density at 1 au, and
-              disk density profile is thus calculated from Sigma_0 rather than Mdisk.
+             If True, mdisk will be treated as sigma_0, column density at 1 au.
         '''
         # put a disk
         self.disk = 1
@@ -297,7 +306,9 @@ class PTSMODEL():
             self.sig0_disk(mdisk, rin, rout, plsig)
             sig0 = self.sig0
 
-        sigma = sig0 * (rxy/au)**plsig # surface density as a function of r
+        # surface density as a function of r
+        sigma = sig0 * (rxy/au)**plsig
+        self.sigma = sigma
 
         # scale height
         hhr       = hr0 * (rxy/au)**plh # h/r at r, where h is the scale hight
@@ -311,6 +322,67 @@ class PTSMODEL():
         # rin < rdisk < rout
         sigma[np.where(rxy < rin)]  = 0.
         sigma[np.where(rxy > rout)] = 0.
+
+        exp = np.exp(-zz*zz/(2.*hh*hh))
+        rho = sigma*exp/(np.sqrt(2.*np.pi)*hh) # [g/cm^3]
+
+        self.rho_disk = rho
+
+
+    def rho_ssdisk(self, mdisk, rc, gamma, hr0, plh, sig0=False):
+        '''
+        Dencity distribution for the Shakura-Sunyaev disk.
+
+
+        Parameters
+        ----------
+        mdisk (float): Disk mass or Sigma_0
+        rc (float): Characteristic radius
+        gamma (float): Power-law index. Must be <2 so that disk mass converges.
+        hr0: H/r at 1au, where H is the scale height.
+        plh: Power-law index of the radial profile of h/r, which determines disk-flaring.
+         It should be 0.25 if you assume T prop r^-0.5 & Keplerian rotation.
+        sig0 (bool): If False, mdisk will be treated as Mdisk.
+         If True, mdisk will be treated as sigma_0, column density at 1 au.
+        '''
+        # put a disk
+        if gamma >= 2.:
+            # check gamma
+            self.disk = 0
+            print('ERROR\trho_ssdisk: gamma must be <2.')
+            return 0
+        else:
+            self.disk = 1
+
+        # grid
+        rxy = self.rxy
+        zz  = self.zz
+
+        self.rdisk_c  = rc
+
+        # surface density profile
+        # sig0, column density at 1 au
+        if sig0:
+            self.sig0 = mdisk
+        else:
+            self.sig0 = mdisk * (2. - gamma)/(2. * np.pi * rc * rc)
+
+        # surface density as a function of r
+        sigma = self.sig0 * (rxy/rc)**(-gamma) * np.exp(- (rxy/rc)**(2. - gamma) )
+        self.sigma = sigma
+
+        # scale height
+        hhr       = hr0 * (rxy/au)**plh # h/r at r, where h is the scale hight
+        hh        = hhr * rxy           # the scale hight at r
+        self.hh   = hh
+
+
+        # make rho
+        rho = np.zeros(self.gridshape)
+
+        # rin < rdisk < rout
+        #sigma[np.where(rxy < rin)]  = 0.
+        #sigma[np.where(rxy > rout)] = 0.
 
         exp = np.exp(-zz*zz/(2.*hh*hh))
         rho = sigma*exp/(np.sqrt(2.*np.pi)*hh) # [g/cm^3]
@@ -546,14 +618,14 @@ class PTSMODEL():
         self.rho_cavity   = rho_cavity
 
 
-    def rho_model(self, Xconv, mu=2.8, gtod_ratio = 100., disk_height=1):
+    def rho_model(self, mu=2.8, gtod_ratio = 100., disk_height=1):
         '''
         Make a density model
 
         Args:
-            gtod_ratio: gas-to-dust mass ratio
-            mu: mean molecular weight
-            Xconv: Abandance of a molecule you want to model.
+            gtod_ratio (float): Gas-to-dust mass ratio
+            mu (float): Mean molecular weight per hydrogen molecule.
+                        Default 2.8 (Kauffmann et al. 2008)
         '''
         rho = np.zeros(self.gridshape)
 
@@ -568,8 +640,9 @@ class PTSMODEL():
             rho = self.rho_env                          # Put an envelope
             rho[where_disk] = self.rho_disk[where_disk] # Put a disk within an envelope
         elif (self.disk == 1) & (self.envelope == 0):
-            # disk only
-            rho = self.rho_disk
+            # Disk only
+            # Adopte the surface density (sigma) when assuming geometry thin disk
+            rho = self.sigma if self.ntheta == 1 else self.rho_disk
         elif (self.disk == 0) & (self.envelope == 1):
             # envelope only
             rho = self.rho_env
@@ -582,24 +655,26 @@ class PTSMODEL():
             rho[self.where_cavity] = self.rho_cavity
 
         # density of the total gas (H2 gas) & dust
-        rho_h2 = rho
-        rho_d  = rho_h2/gtod_ratio
-
-        # density of the target molecule
-        rho_g  = rho_h2*Xconv
-        nrho_g = rho_g/(mu*mp)
-
+        rho_d = rho / gtod_ratio
         # save
-        self.rho_H2 = rho_h2
-        self.rho_d  = rho/gtod_ratio
-        self.rho_g  = rho_g
-        self.nrho_g = nrho_g
+        self.rho_total = rho # total gas mass
+        self.nrho_H2 = rho / mu / mp # H2 number column density
+        self.rho_d  = rho_d
+
+        # for molecules
+        for i in self.line:
+            if i is not None:
+                _, weight, nlevels, EJ, gJ, J, ntrans, trans, Jup, Jlow, Acoeff, freq, delE = \
+                read_lamda_moldata('molecule_'+i+'.inp')
+                self.nrho_g[i] = self.nrho_H2 * self.Xmol[i] # number density of the molecule
+                self.rho_g[i] = self.nrho_g[i] * weight * mp # density of the molecule
 
 
     # Velocity distributions
-    def vfield_model(self):
-        rr, tt, phph = self.grid
-        rxy          = self.rxy
+    def vfield_model(self, pterm = False):
+        rr, tt, phph = self.rr, self.tt, self.phph
+        rxy = self.rxy
+        zz  = self.zz
 
         # initialize
         vr     = np.zeros(self.gridshape)
@@ -607,11 +682,11 @@ class PTSMODEL():
         vphi   = np.zeros(self.gridshape)
 
         # read density
-        if self.rho_g.size:
-            pass
-        else:
-            print ('ERROR: No density distribution. Make density distribution before calculating v-field.')
-            return
+        #if self.rho_g.size:
+        #    pass
+        #else:
+        #    print ('ERROR: No density distribution. Make density distribution before calculating v-field.')
+        #    return
 
         if (self.disk ==1) & (self.envelope == 1):
             # v_envelope
@@ -621,13 +696,13 @@ class PTSMODEL():
             vphi   = vphi_env
 
             # v_disk
-            vr_disk, vtheta_disk, vphi_disk = v_steadydisk(rxy, self.mstar)
+            vr_disk, vtheta_disk, vphi_disk = v_steadydisk(rxy, zz, self.mstar)
             where_disk = self.where_disk
             vr[where_disk]     = vr_disk[where_disk]
             vtheta[where_disk] = vtheta_disk[where_disk]
             vphi[where_disk]   = vphi_disk[where_disk]
         elif (self.disk == 1) & (self.envelope == 0):
-            vr_disk, vtheta_disk, vphi_disk = v_steadydisk(rxy, self.mstar)
+            vr_disk, vtheta_disk, vphi_disk = v_steadydisk(rxy, zz, self.mstar)
             vr     = vr_disk
             vtheta = vtheta_disk
             vphi   = vphi_disk
@@ -756,90 +831,105 @@ class PTSMODEL():
 
 
     # Make input files for RADMC-3D
-    def export_to_radmc3d(self, nphot, dustopac='nrmS03',line=None, iseed = -5415):
+    def export_to_radmc3d(self, nphot, dustopac='nrmS03',
+        iseed = -5415, scattering_mode=0, ndust_spec = 1,
+        wavelengths = True, stars = True, grid = True,
+        dust_density = True, dust_opacity = True,
+        gas_velocity = True,):
         nr, ntheta, nphi = self.gridshape
         self.dustopac = dustopac
-        self.line     = line
         ############### Output the model into radmc3d files ############
         # Write the wavelength_micron.inp file
-        #
-        lam1     = 0.1e0
-        lam2     = 7.0e0
-        lam3     = 25.e0
-        lam4     = 1.0e4
-        n12      = 20
-        n23      = 100
-        n34      = 30
-        lam12    = np.logspace(np.log10(lam1),np.log10(lam2),n12,endpoint=False)
-        lam23    = np.logspace(np.log10(lam2),np.log10(lam3),n23,endpoint=False)
-        lam34    = np.logspace(np.log10(lam3),np.log10(lam4),n34,endpoint=True)
-        lam      = np.concatenate([lam12,lam23,lam34])
-        nlam     = lam.size
-        #
-        # Write the wavelength file
-        #
-        with open('wavelength_micron.inp','w+') as f:
-            f.write('%d\n'%(nlam))
-            np.savetxt(f,lam.T,fmt=['%13.6e']) # .T command produce transposed matrix
+        if wavelengths:
+            lam1     = 0.1e0
+            lam2     = 7.0e0
+            lam3     = 25.e0
+            lam4     = 1.0e4
+            n12      = 20
+            n23      = 100
+            n34      = 30
+            lam12    = np.logspace(np.log10(lam1),np.log10(lam2),n12,endpoint=False)
+            lam23    = np.logspace(np.log10(lam2),np.log10(lam3),n23,endpoint=False)
+            lam34    = np.logspace(np.log10(lam3),np.log10(lam4),n34,endpoint=True)
+            lam      = np.concatenate([lam12,lam23,lam34])
+            nlam     = lam.size
+            #
+            # Write the wavelength file
+            #
+            with open('wavelength_micron.inp','w+') as f:
+                f.write('%d\n'%(nlam))
+                np.savetxt(f,lam.T,fmt=['%13.6e']) # .T command produce transposed matrix
         #
         #
         # Write the stars.inp file
         #
-        with open('stars.inp','w+') as f:
-            f.write('2\n')
-            f.write('1 %d\n\n'%(nlam))
-            f.write('%13.6e %13.6e %13.6e %13.6e %13.6e\n\n'%(self.rstar,self.mstar,self.pstar[0],self.pstar[1],self.pstar[2]))
-            np.savetxt(f,lam.T,fmt=['%13.6e'])
-            f.write('\n%13.6e\n'%(-self.tstar))
+        if stars:
+            with open('stars.inp','w+') as f:
+                f.write('2\n')
+                f.write('1 %d\n\n'%(nlam))
+                f.write('%13.6e %13.6e %13.6e %13.6e %13.6e\n\n'%(self.rstar,self.mstar,self.pstar[0],self.pstar[1],self.pstar[2]))
+                np.savetxt(f,lam.T,fmt=['%13.6e'])
+                f.write('\n%13.6e\n'%(-self.tstar))
         #
         # Write the grid file
         #
-        with open('amr_grid.inp','w+') as f:
-            f.write('1\n')                         # iformat
-            f.write('0\n')                         # AMR grid style  (0=regular grid, no AMR)
-            f.write('100\n')                       # Coordinate system: spherical
-            f.write('0\n')                         # gridinfo
-            # Include r,theta, phi coordinates or not
-            incl_rtp = [0 if n_i == 1 else 1 for n_i in [nr, ntheta, nphi]]
-            f.write('%i %i %i\n'%(incl_rtp[0], incl_rtp[1], incl_rtp[2]))
-            f.write('%d %d %d\n'%(nr,ntheta,nphi)) # Size of grid
-            np.savetxt(f,self.ri.T,fmt=['%21.14e'])     # R coordinates (cell walls)
-            np.savetxt(f,self.thetai.T,fmt=['%21.14e']) # Theta coordinates (cell walls)
-            np.savetxt(f,self.phii.T,fmt=['%21.14e'])   # Phi coordinates (cell walls)
+        if grid:
+            with open('amr_grid.inp','w+') as f:
+                f.write('1\n')                         # iformat
+                f.write('0\n')                         # AMR grid style  (0=regular grid, no AMR)
+                f.write('100\n')                       # Coordinate system: spherical
+                f.write('0\n')                         # gridinfo
+                # Include r,theta, phi coordinates or not
+                incl_rtp = [0 if n_i == 1 else 1 for n_i in [nr, ntheta, nphi]]
+                f.write('%i %i %i\n'%(incl_rtp[0], incl_rtp[1], incl_rtp[2]))
+                f.write('%d %d %d\n'%(nr,ntheta,nphi)) # Size of grid
+                np.savetxt(f,self.ri.T,fmt=['%21.14e'])     # R coordinates (cell walls)
+                np.savetxt(f,self.thetai.T,fmt=['%21.14e']) # Theta coordinates (cell walls)
+                np.savetxt(f,self.phii.T,fmt=['%21.14e'])   # Phi coordinates (cell walls)
         #
         # Write the density file
         #
-        with open('dust_density.inp','w+') as f:
-            f.write('1\n')                                  # Format number
-            f.write('%d\n'%(nr*ntheta*nphi))                # Nr of cells
-            f.write('1\n')                                  # Nr of dust species
-            data = self.rho_d.ravel(order='F')              # Create a 1-D view, fortran-style indexing
-            np.savetxt(f,data.T,fmt=['%13.6e'])             # The data
+        if dust_density:
+            with open('dust_density.inp','w+') as f:
+                f.write('1\n')                                  # Format number
+                f.write('%d\n'%(nr*ntheta*nphi))                # Nr of cells
+                f.write('%i\n'%ndust_spec)                      # Nr of dust species
+                data = self.rho_d.ravel(order='F')              # Create a 1-D view, fortran-style indexing
+                np.savetxt(f,data.T,fmt=['%13.6e'])             # The data
         #
         # Dust opacity control file
         #
-        with open('dustopac.inp','w+') as f:
-            f.write('2               Format number of this file\n')
-            f.write('1               Nr of dust species\n')
-            f.write('============================================================================\n')
-            f.write('1               Way in which this dust species is read\n')
-            f.write('0               0=Thermal grain\n')
-            f.write('%s          Extension of name of dustkappa_***.inp file\n'%dustopac)
-            f.write('----------------------------------------------------------------------------\n')
+        if dust_opacity:
+            with open('dustopac.inp','w+') as f:
+                f.write('2               Format number of this file\n')
+                f.write('%i               Nr of dust species\n'%ndust_spec)
+                f.write('============================================================================\n')
+                f.write('1               Way in which this dust species is read\n')
+                f.write('0               0=Thermal grain\n')
+                f.write('%s          Extension of name of dustkappa_***.inp file\n'%dustopac)
+                f.write('----------------------------------------------------------------------------\n')
         #
         # Write the gas velocity field
         #
-        with open('gas_velocity.inp','w+') as f:
-            f.write('1\n')                        # Format number
-            f.write('%d\n'%(nr*ntheta*nphi))      # Nr of cells
-            wgv = [[[f.write('%13.6e %13.6e %13.6e\n'%(self.vr[ir,itheta,iphi],self.vtheta[ir,itheta,iphi],self.vphi[ir,itheta,iphi]))
-            for ir in range(nr) ] for itheta in range(ntheta)] for iphi in range(nphi)]
-            '''
-            for iphi in range(nphi):
-                for itheta in range(ntheta):
-                    for ir in range(nr):
-                        f.write('%13.6e %13.6e %13.6e\n'%(self.vr[ir,itheta,iphi],self.vtheta[ir,itheta,iphi],self.vphi[ir,itheta,iphi]))
-            '''
+        if gas_velocity:
+            #with open('gas_velocity.inp','w+') as f:
+            #    f.write('1\n')                        # Format number
+            #    f.write('%d\n'%(nr*ntheta*nphi))      # Nr of cells
+            #    wgv = [[[f.write('%13.6e %13.6e %13.6e\n'%(self.vr[ir,itheta,iphi],self.vtheta[ir,itheta,iphi],self.vphi[ir,itheta,iphi]))
+            #    for ir in range(nr) ] for itheta in range(ntheta)] for iphi in range(nphi)]
+            # faster version
+            ncell = nr * ntheta * nphi
+            vr_1d = self.vr.ravel(order = 'F')
+            vtheta_1d = self.vtheta.ravel(order = 'F')
+            vphi_1d = self.vphi.ravel(order = 'F')
+            data = np.column_stack((vr_1d, vtheta_1d, vphi_1d))
+            np.savetxt(
+                "gas_velocity.inp",
+                data,
+                fmt="%13.6e %13.6e %13.6e",
+                header=f"1\n{ncell}",
+                comments="",  # IMPORTANT: prevents "# " in header
+            )
         #
         # Write the microturbulence file
         #
@@ -851,25 +941,27 @@ class PTSMODEL():
                 np.savetxt(f,data.T,fmt=['%13.6e'])
         # Write the lines.inp control file
         #
-        if self.line:
+        if self.line[0] is not None:
             with open('lines.inp','w') as f:
                 f.write('1\n')
-                f.write('1\n')
-                f.write('%s    leiden    0    0\n'%line)
+                f.write('%i\n'%(len(self.line)))
+                for i in self.line:
+                    f.write('%s    leiden    0    0    0\n'%i)
             # Write the molecule number density file.
             #
-            with open('numberdens_%s.inp'%line,'w+') as f:
-                f.write('1\n')                       # Format number
-                f.write('%d\n'%(nr*ntheta*nphi))     # Nr of cells
-                data = self.nrho_g.ravel(order='F')  # Create a 1-D view, fortran-style indexing
-                np.savetxt(f,data.T,fmt=['%13.6e'])
+            for line in self.line:
+                with open('numberdens_%s.inp'%line,'w+') as f:
+                    f.write('1\n')                       # Format number
+                    f.write('%d\n'%(nr*ntheta*nphi))     # Nr of cells
+                    data = self.nrho_g[line].ravel(order='F') # Create a 1-D view, fortran-style indexing
+                    np.savetxt(f,data.T,fmt=['%13.6e'])
         #
         # Write the radmc3d.inp control file
         #
         with open('radmc3d.inp','w+') as f:
             f.write('nphot = %d\n'%nphot)
             f.write('iseed = %d\n'%iseed)
-            f.write('scattering_mode_max = 0\n')
+            f.write('scattering_mode_max = %i\n'%(scattering_mode))
             f.write('iranfreqmode = 1\n')
             f.write('tgas_eq_tdust = 1')
         ####################### End output ########################
@@ -881,9 +973,10 @@ class PTSMODEL():
         '''
         # files
         path_infiles = model_utils.__file__.split('ptsmodel')[0]+'infiles/'
-        fins = ['dustkappa_%s.inp'%self.dustopac, 'molecule_%s.inp'%self.line] if self.line is not None\
-        else [ 'dustkappa_%s.inp'%self.dustopac ]
-        for fin in ['dustkappa_%s.inp'%self.dustopac, 'molecule_%s.inp'%self.line]:
+        fins = ['dustkappa_%s.inp'%self.dustopac]
+        flines = [] if self.line[0] is None else ['molecule_%s.inp'%i for i in self.line]
+        fins = fins + flines
+        for fin in fins:
             if os.path.exists(fin) == False:
                 if os.path.exists(path_infiles + fin):
                     shutil.copy(path_infiles + fin, '.')
@@ -896,7 +989,8 @@ class PTSMODEL():
 
 
     def solve_radtrans_line(self, npix, iline, sizeau,
-        width_spw, nchan, pa, inc, contsub=True):
+        width_spw, nchan, pa, inc, imolspec=1, vkms=0.,
+        phi = 0., contsub=True,):
         '''
         Solve radiative transfer for line with RADMC3D.
 
@@ -915,20 +1009,25 @@ class PTSMODEL():
          None
         '''
 
+        if self.line[0] is None:
+            print('ERROR\tsolve_radtrans_line: No lines are specified.')
+            print('ERROR\tsolve_radtrans_line: Check if line is given correctly.')
+            return 0
+
         # read moldata
-        _, weight, nlevels, EJ, gJ, J, ntrans, Jup, Acoeff, freq, delE =\
-        read_lamda_moldata('molecule_'+self.line+'.inp')
+        _, weight, nlevels, EJ, gJ, J, ntrans, trans, Jup, Jlow, Acoeff, freq, delE =\
+        read_lamda_moldata('molecule_'+self.line[imolspec-1]+'.inp')
         restfreq = freq[iline-1]*1e9 # rest frequency (Hz)
 
-        run_radmc = 'radmc3d image npix %i phi 0 iline %i \
-        sizeau %.f widthkms %.2f linenlam %i posang %.2f \
-        incl %.2f'%(npix, iline, sizeau, width_spw, nchan, pa, inc)
+        run_radmc = 'radmc3d image imolspec %i npix %i phi %.2f iline %i \
+        sizeau %.f widthkms %.2f vkms %.2f linenlam %i posang %.2f \
+        incl %.2f'%(imolspec, npix, phi, iline, sizeau, width_spw, vkms, nchan, pa, inc)
         print ('Solve radiative transfer.')
         print (run_radmc)
         os.system(run_radmc)
 
         # output
-        fout_line = 'image_%s%i%i.out'%(self.line, iline, iline-1)
+        fout_line = 'image_%s%i%i.out'%(self.line[imolspec-1], iline, iline-1)
         print ('image.out --> '+fout_line)
         os.system('mv image.out '+fout_line)
 
@@ -944,21 +1043,21 @@ class PTSMODEL():
         if contsub:
             lam = clight*1e-2/restfreq*1e6 # micron
             print ('Solve radiative transfer for continuum.')
-            run_radmc = 'radmc3d image noline npix %i phi 0 \
+            run_radmc = 'radmc3d image noline npix %i phi %.2f \
             sizeau %.f posang %.2f incl %.2f lambda %.13e'\
-            %(npix, sizeau, pa, inc, lam)
+            %(npix, phi, sizeau, pa, inc, lam)
             print (run_radmc)
             os.system(run_radmc)
             # output
-            fout_cont = 'image_%s%i%i_cont.out'%(self.line, iline, iline-1)
+            fout_cont = 'image_%s%i%i_cont.out'%(self.line[imolspec-1], iline, iline-1)
             print ('image.out --> '+fout_cont)
             os.system('cp image.out '+fout_cont)
 
             # contsub
-            _ = image_contsub(self.line, iline)
+            _ = image_contsub(self.line[imolspec-1], iline)
 
 
-    def solve_radtrans_cont(self, npix, sizeau, pa, inc, lam):
+    def solve_radtrans_cont(self, npix, sizeau, pa, inc, lam, phi = 0.):
         '''
         Solve radiative transfer for continuum with RADMC3D.
 
@@ -976,9 +1075,9 @@ class PTSMODEL():
         '''
         print ('Solve radiative transfer for continuum\
             for continuum subtraction.')
-        run_radmc = 'radmc3d image npix %i phi 0 \
+        run_radmc = 'radmc3d image npix %i phi %.2f \
         sizeau %.f posang %.2f incl %.2f lambda %.13e'\
-        %(npix, sizeau, pa, inc, lam)
+        %(npix, phi, sizeau, pa, inc, lam)
         print (run_radmc)
         os.system(run_radmc)
         # output
@@ -997,8 +1096,11 @@ class PTSMODEL():
 
     # plot for check
     # plot density
-    def show_density(self, rho_d_range=[], nrho_g_range=[],
-        figsize=(11.69,8.27), cmap='coolwarm', fontsize=14, wspace=0.4, hspace=0.2):
+    def show_density(self, rho_d_range = None, nrho_g_range = None,
+        xlim = None, ylim = None, rlim = None, zlim = None,
+        figsize = (11.69,8.27), cmap='coolwarm', 
+        fontsize = 14, wspace=0.4, hspace=0.2, imol = -1,
+        drange = 1.e-5):
         '''
         Visualize density distribution as 2-D slices.
 
@@ -1008,11 +1110,9 @@ class PTSMODEL():
         '''
         # modules
         import matplotlib.pyplot as plt
-        from mpl_toolkits.mplot3d import axes3d
-        from matplotlib import pyplot as plt
+        from mpl_toolkits.axes_grid1.inset_locator import inset_axes
         from matplotlib import cm
         import matplotlib.colors as colors
-        import mpl_toolkits.axes_grid1
 
         # setting for figures
         #plt.rcParams['font.family'] ='Arial'    # font (Times New Roman, Helvetica, Arial)
@@ -1029,130 +1129,129 @@ class PTSMODEL():
         ri     = self.ri
         thetai = self.thetai
         phii   = self.phii
-
+        theta_c = self.theta
+        # Cylindarical
         rr, tt, phph = np.meshgrid(ri, thetai, phii, indexing='ij')
         rxy = rr*np.sin(tt)      # radius in xy-plane, r*sin(theta)
         zz  = rr*np.cos(tt)      # z, r*cos(theta)
-        #rr     = self.rr
-        #phph   = self.phph
-        #rxy    = self.rxy
-        #zz     = self.zz
-
-        rho_d  = self.rho_d
-        nrho_g = self.nrho_g
-
+        # Certesian
         xx = rxy*np.cos(phph)
         yy = rxy*np.sin(phph)
+        indx_mid = np.argmin(np.abs(theta_c - np.pi*0.5)) # mid-plane
+        # dust density
+        rho_d  = self.rho_d
 
         # parameters
-        if len(rho_d_range) == 0:
-            rho_d_max = np.nanmax(rho_d)
-            rho_d_min = rho_d_max*1e-7  # g cm^-3, dynamic range of an order of five
-        elif len(rho_d_range) == 2:
-            rho_d_min, rho_d_max = rho_d_range
-        else:
-            print ('ERROR: rho_d_range must be given as [min value, max value].')
-            rho_d_max = np.nanmax(rho_d)
-            rho_d_min = rho_d_max*1e-7  # g cm^-3, dynamic range of an order of five
-
-        if len(nrho_g_range) == 0:
-            nrho_g_max = np.nanmax(nrho_g)
-            nrho_g_min = nrho_g_max*1e-7 # dynamic range of an order of five
-        elif len(nrho_g_range) == 2:
-            nrho_g_min, nrho_g_max = nrho_g_range
-        else:
-            print ('ERROR: nrho_g_range must be given as [min value, max value].')
-            nrho_g_max = np.nanmax(nrho_g)
-            nrho_g_min = nrho_g_max*1e-7 # dynamic range of an order of five
-
+        rho_d_range = rho_d_range if rho_d_range is not None \
+        else [np.nanmax(rho_d) * drange, np.nanmax(rho_d)]
+        norm = colors.LogNorm(vmin = rho_d_range[0], vmax = rho_d_range[1])
+        cbarlabel = r'$\rho_\mathrm{dust}\ \mathrm{(g\ cm^{-3})}$'
+        # plot lim
+        xlim = xlim if xlim is not None else [np.nanmin(xx)/au, np.nanmax(xx)/au]
+        ylim = ylim if ylim is not None else [np.nanmin(yy)/au, np.nanmax(yy)/au]
+        rlim = rlim if rlim is not None else [np.nanmin(rr)/au, np.nanmax(rr)/au]
+        zlim = zlim if zlim is not None else [np.nanmin(zz)/au, np.nanmax(zz)/au]
 
         # dust disk
-        fig1 = plt.figure(figsize=figsize)
+        fig = plt.figure(figsize=figsize)
+        if nphi <= 1:
+            ax1 = fig.add_subplot(111)
+            cbarlabel1 = cbarlabel
+        else:
+            ax1 = fig.add_subplot(121)
+            ax2 = fig.add_subplot(122)
+            cbarlabel1 = ''
 
-        # plot 1; density in r vs z
-        ax1     = fig1.add_subplot(121)
-        divider = mpl_toolkits.axes_grid1.make_axes_locatable(ax1)
-        cax1    = divider.append_axes('right', '3%', pad='0%')
-
-        im1   = ax1.pcolormesh(rxy[:,:,nphi//2]/au, zz[:,:,nphi//2]/au, rho_d[:,:,nphi//2], cmap=cmap,
-         norm = colors.LogNorm(vmin = rho_d_min, vmax=rho_d_max), rasterized=True)
-        cbar1 = fig1.colorbar(im1, cax=cax1)
-
-        ax1.set_xlabel('Radius (au)')
-        ax1.set_ylabel('z (au)')
-        #cbar1.set_label(r'$\rho_\mathrm{dust}\ \mathrm{(g\ cm^{-3})}$')
-        ax1.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True, pad=9)
+        # r-z plot
+        visualize.colorplot(
+            rxy[:,:,nphi//2]/au,
+            zz[:,:,nphi//2]/au,
+            rho_d[:,:,nphi//2], ax = ax1,
+            xlim = rlim, ylim = zlim, dlim = rho_d_range,
+            cmap = cmap, norm = norm, xlabel = r'$R$ (au)',
+            ylabel = r'$z$ (au)', cbarlabel = cbarlabel1,)
+        ax1.tick_params(which='both', direction='in', bottom=True, top=True,
+            left=True, right=True, pad=9)
         ax1.set_aspect(1)
 
-
-        # plot 2; density in r vs phi (xy-plane)
-        ax2     = fig1.add_subplot(122)
-        divider = mpl_toolkits.axes_grid1.make_axes_locatable(ax2)
-        cax2    = divider.append_axes('right', '3%', pad='0%')
-
-        indx_mid = np.argmin(np.abs(self.tt[0,:,0] - np.pi*0.5)) # mid-plane
-        im2   = ax2.pcolormesh(xx[:,indx_mid,:]/au, yy[:,indx_mid,:]/au, rho_d[:,indx_mid,:],
-         cmap=cmap, norm = colors.LogNorm(vmin = rho_d_min, vmax=rho_d_max), rasterized=True)
-        #ax2.scatter(xx[:,-1,:]/au, yy[:,-1,:]/au, marker='x', s=5., color='k')
-        cbar2 = fig1.colorbar(im2,cax=cax2)
-
-        ax2.set_xlabel('x (au)')
-        ax2.set_ylabel('y (au)')
-        cbar2.set_label(r'$\rho_\mathrm{dust}\ \mathrm{(g\ cm^{-3})}$')
-        ax2.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True, pad=9)
-        ax2.set_aspect(1)
-
-
-
-        # gas disk
-        fig2 = plt.figure(figsize=figsize)
-
-        # plot 1; gas number density in r vs z
-        ax3     = fig2.add_subplot(121)
-        divider = mpl_toolkits.axes_grid1.make_axes_locatable(ax3)
-        cax3    = divider.append_axes('right', '3%', pad='0%')
-
-        im3   = ax3.pcolormesh(rxy[:,:,nphi//2]/au, zz[:,:,nphi//2]/au, nrho_g[:,:,nphi//2],
-         cmap=cmap, norm = colors.LogNorm(vmin = nrho_g_min, vmax=nrho_g_max), rasterized=True)
-        cbar3 = fig2.colorbar(im3,cax=cax3)
-
-        ax3.set_xlabel('radius (au)')
-        ax3.set_ylabel('z (au)')
-        #cbar3.set_label(r'$n_\mathrm{gas}\ \mathrm{(cm^{-3})}$')
-        ax3.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True, pad=9)
-        ax3.set_aspect(1)
-
-
-        # plot 2; density in r vs phi (xy-plane)
-        ax4     = fig2.add_subplot(122)
-        divider = mpl_toolkits.axes_grid1.make_axes_locatable(ax4)
-        cax4    = divider.append_axes('right', '3%', pad='0%')
-
-        im4   = ax4.pcolormesh(xx[:,indx_mid,:]/au, yy[:,indx_mid,:]/au, nrho_g[:,indx_mid,:], cmap=cmap,
-         norm = colors.LogNorm(vmin = nrho_g_min, vmax=nrho_g_max), rasterized=True)
-        #im4   = ax4.pcolor(rr[:,-1,:]/au, phph[:,-1,:], nrho_gas[:,-1,:], cmap=cm.coolwarm, norm = colors.LogNorm(vmin = 10., vmax=1.e4))
-
-        cbar4 = fig2.colorbar(im4,cax=cax4)
-        ax4.set_xlabel('x (au)')
-        ax4.set_ylabel('y (au)')
-        cbar4.set_label(r'$n_\mathrm{gas}\ \mathrm{(cm^{-3})}$')
-        ax4.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True, pad=9)
-        ax4.set_aspect(1)
-
+        # x-y plot
+        if nphi > 1:
+            visualize.colorplot(xx[:,indx_mid,:]/au,
+                yy[:,indx_mid,:]/au,
+                rho_d[:,indx_mid,:], ax = ax2,
+                xlim = xlim, ylim = ylim, dlim = rho_d_range,
+                cmap = cmap, norm = norm, xlabel = r'$x$ (au)',
+                ylabel = r'$y$ (au)', cbarlabel = cbarlabel)
+            ax2.tick_params(which='both', direction='in', bottom=True,
+                top=True, left=True, right=True, pad=9)
+            ax2.set_aspect(1)
+            fig.subplots_adjust(wspace=wspace, hspace=hspace)
 
         # save figures
-        fig1.subplots_adjust(wspace=wspace, hspace=hspace)
-        fig1.savefig('dust_density.pdf',transparent=True)
-
-        fig2.subplots_adjust(wspace=wspace, hspace=hspace)
-        fig2.savefig('gas_density.pdf',transparent=True)
+        fig.savefig('dust_density.pdf',transparent=True)
         plt.close()
 
 
+        # gas disk
+        if self.line[0] is not None:
+            if imol >= 0:
+                imols = [imol]
+            else: # go for all
+                imols = range(0, len(self.line))
+
+            for imol in imols:
+                nrho_g = self.nrho_g[self.line[imol]]
+                nrho_g_range = nrho_g_range if nrho_g_range is not None \
+                else [np.nanmax(nrho_g) * drange, np.nanmax(nrho_g)]
+                norm = colors.LogNorm(vmin = nrho_g_range[0], vmax = nrho_g_range[1])
+
+                cbarlabel = r'$n_\mathrm{%s}\ \mathrm{(cm^{-3})}$'%self.line[imol]
+
+                # figure
+                fig = plt.figure(figsize=figsize)
+                if nphi <= 1:
+                    ax1 = fig.add_subplot(111)
+                    cbarlabel1 = cbarlabel
+                else:
+                    ax1 = fig.add_subplot(121)
+                    ax2 = fig.add_subplot(122)
+                    cbarlabel1 = ''
+
+                # r-z plot
+                visualize.colorplot(
+                    rxy[:,:,nphi//2]/au,
+                    zz[:,:,nphi//2]/au,
+                    nrho_g[:,:,nphi//2], ax = ax1,
+                    xlim = rlim, ylim = zlim, dlim = nrho_g_range,
+                    cmap = cmap, norm = norm, xlabel = r'$R$ (au)',
+                    ylabel = r'$z$ (au)', cbarlabel = cbarlabel1)
+                ax1.tick_params(which='both', direction='in', bottom=True, top=True,
+                    left=True, right=True, pad=9)
+                ax1.set_aspect(1)
+
+                # x-y plot
+                if nphi > 1:
+                    visualize.colorplot(
+                        xx[:,indx_mid,:]/au,
+                        yy[:,indx_mid,:]/au,
+                        nrho_g[:,indx_mid,:],
+                        ax = ax2,
+                        xlim = xlim, ylim = ylim, dlim = nrho_g_range,
+                        cmap = cmap, norm = norm, xlabel = r'$x$ (au)',
+                        ylabel = r'$y$ (au)', cbarlabel = cbarlabel)
+                    ax2.tick_params(which='both', direction='in', bottom=True,
+                        top=True, left=True, right=True, pad=9)
+                    ax2.set_aspect(1)
+
+                    fig.subplots_adjust(wspace=wspace, hspace=hspace)
+                fig.savefig('gas_density_%s.pdf'%self.line[imol],transparent=True)
+                plt.close()
+
+
     # plot velocity field
-    def show_vfield(self, nrho_g_range=[], r_range=[], step=1,
-     figsize=(11.69,8.27), vscale=3e2, width=10. ,cmap='coolwarm',
-      fontsize=14, wspace=0.4, hspace=0.2):
+    def show_vfield(self, nrho_g_range = [], r_range=[], step=1,
+        figsize=(11.69,8.27), vscale=3e2, width=10. ,cmap='coolwarm',
+      fontsize=14, wspace=0.4, hspace=0.2, imol=0):
         '''
         Visualize density distribution as 2-D slices.
 
@@ -1174,6 +1273,11 @@ class PTSMODEL():
         plt.rcParams['ytick.direction'] = 'in'      # directions of y ticks ('in'), ('out') or ('inout')
         plt.rcParams['font.size']       = fontsize  # fontsize
 
+
+        if self.line[0] is None:
+            print('ERROR\tsolve_radtrans_line: No lines are specified.')
+            print('ERROR\tsolve_radtrans_line: Check if line is given correctly.')
+            return 0
 
         # read model
         nr, ntheta, nphi = self.gridshape
@@ -1200,7 +1304,7 @@ class PTSMODEL():
         zz   = self.zz
 
         # density
-        nrho_g = self.nrho_g
+        nrho_g = self.nrho_g[self.line[imol]]
 
         # velocity
         vr     = self.vr
@@ -1325,9 +1429,9 @@ class PTSMODEL():
 
     # plot temperature profile
     def plot_temperature(self, infile='dust_temperature.dat',
-     t_range=[], r_range=[], figsize=(11.69,8.27), cmap='coolwarm',
+     t_range=[], r_range=[], z_range=[], figsize=(11.69,8.27), cmap='coolwarm',
       fontsize=14, wspace=0.4, hspace=0.2, clevels=[10,20,30,40,50,60],
-       aspect=1.):
+       aspect=1., imol=0):
         '''
         Plot temperature profile.
 
@@ -1362,8 +1466,8 @@ class PTSMODEL():
         rxy = rr*np.sin(tt)      # radius in xy-plane, r*sin(theta)
         zz  = rr*np.cos(tt)      # z, r*cos(theta)
 
-        rho_d  = self.rho_d
-        nrho_g = self.nrho_g
+        #rho_d  = self.rho_d
+        #nrho_g = self.nrho_g[self.line[imol]]
 
         xx = rxy*np.cos(phph)
         yy = rxy*np.sin(phph)
@@ -1408,6 +1512,8 @@ class PTSMODEL():
             temp_min = 0.
             temp_max = np.nanmax(temp)
 
+        z_min, z_max = z_range if len(z_range) == 2 else [0., rmax]
+
 
         # figure
         fig = plt.figure(figsize=figsize)
@@ -1433,7 +1539,7 @@ class PTSMODEL():
 
         ax1.tick_params(which='both', direction='in',bottom=True, top=True, left=True, right=True)
         ax1.set_xlim(0,rmax/au)
-        ax1.set_ylim(0,rmax/au)
+        ax1.set_ylim(z_min/au, z_max/au)
         ax1.set_aspect(aspect)
 
 
@@ -1469,8 +1575,7 @@ def Vkep(radius, Mstar):
     radius: radius [cm]
     Mstar: central stellar mass [g]
     '''
-    Vkep = np.sqrt(Ggrav*Mstar/radius)
-    return Vkep
+    return np.sqrt(Ggrav*Mstar/radius)
 
 
 # Vrotation
@@ -1486,13 +1591,40 @@ def vrot_plaw(radius, v0, r0, p):
 
 
 # Velocity field of a disk
-def v_steadydisk(rxy, mstar):
+def v_steadydisk_2d(rxy, mstar):
     # v-field of the disk
     vr     = np.zeros(rxy.shape)
     vtheta = np.zeros(rxy.shape)
     vphi   = Vkep(rxy, mstar)   # Keplerian rotation
 
     return vr, vtheta, vphi
+
+
+def v_steadydisk(rxy, zz, mstar):
+    # v-field of the steady disk
+    vr     = np.zeros(rxy.shape)
+    vtheta = np.zeros(rxy.shape)
+    vphi   = Vkep(rxy, mstar) * (1. + (zz/rxy)**2.)**(-3./4.)
+
+    return vr, vtheta, vphi
+
+
+def vrot_ssdisk(r, ms, T, rc, gamma, q,
+    z = 0., pterm = True, mu = 2.34):
+    '''
+    The pressure gradient term will be analytically calculated
+    '''
+    if pterm:
+        cs2 = kb * T / mu / mH
+        vkep2 = Vkep(r, ms,)**2. * (1. + (z/r)**2.)**(-3./2.)
+        vrot2 = vkep2 - cs2 * ((2.-gamma) * (r/rc)**(2.-gamma) + q + gamma)
+        #plt.scatter(r.ravel()[::100]/auTOcm, np.sqrt(vkep2.ravel()[::100]) * 1e-5)
+        #plt.scatter(r.ravel()[::100]/auTOcm, np.sqrt(vrot2.ravel()[::100]) * 1e-5)
+        #plt.show()
+        #plt.close()
+        return np.sqrt(vrot2)
+    else:
+        return Vkep(r, ms,) * (1. + (z/r)**2.)**(-3./4.)
 
 
 # Infall velocity

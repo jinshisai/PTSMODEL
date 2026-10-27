@@ -37,7 +37,6 @@ clight = 2.99792458e10   # light speed [cm s^-1]
 # give a list or set parameters & name here
 var_ilines = np.array([2, 3, 6])
 lam_cont   = np.array([1300., 890., 450.]) # micron
-restfreqs  = np.array([219.5603541e9, 329.3305525e9, 658.5532782e9])
 modeldir   = 'run_disk'
 modelname  = 'l1527_diskmodel'
 # modellist = 'models.txt'
