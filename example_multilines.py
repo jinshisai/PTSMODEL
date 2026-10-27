@@ -193,14 +193,15 @@ for i, line in enumerate(lines):
      nchan, pa, inc, imolspec=i+1, contsub=True)
 
     # export to fits
-    _, weight, nlevels, EJ, gJ, J, ntrans, trans, Jup, Jlow, Acoeff, freq, delE = \
-    read_lamda_moldata('molecule_'+line+'.inp')
-    restfreq = freq[iline-1]*1e9  # rest frequency (Hz)
     for ext in ['', '_cont', '_contsub']:
-        outname = modelname_i + '_' + line + '%s'%(trans[iline-1]) + ext
         imfile  = 'image_%s%i%i%s.out'%(line, iline, iline-1, ext)
         ptsmodel.export_radmc_tofits.export_radmc_tofits(
-            outname, f=imfile, restfreq=restfreq,
+            modelname_i,
+            f=imfile,
+            line = line,
+            iline = iline,
+            ext = ext,
+            # restfreq=restfreq,
             dist=dist, obname=obname, vsys=vsys,
             coordinate_center=coordinate_center,
             beam_convolution=beam_convolution, beam=beam,
